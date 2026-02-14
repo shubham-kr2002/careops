@@ -12,21 +12,22 @@ interface ProtectedRouteProps {
 }
 
 /**
- * ProtectedRoute Component
+ * ProtectedRoute Component - Enhanced Security
  * 
- * Protects routes based on authentication status and user roles.
+ * Multi-layer authentication strategy:
+ * 1. Server-side: Next.js middleware validates before render
+ * 2. Client-side: This component validates on mount and periodically
+ * 3. Auto-refresh: Proactively refreshes tokens before expiry
  * 
- * First Principles:
- * - Visibility: Clear feedback on why access is denied
- * - Zero Friction: Redirect to login seamlessly
- * - Security: Check auth status before rendering protected content
+ * Security principles:
+ * - Defense in depth (multiple validation layers)
+ * - Fail secure (redirect on any auth failure)
+ * - Session monitoring (auto-logout on token expiry)
+ * - Zero trust (verify every request)
  * 
- * Inversion Analysis - What could go wrong:
- * 1. Flash of unauthenticated content (FOUC) → Show loading state
- * 2. Infinite redirect loops → Track redirect count
- * 3. Role check bypass → Validate role on server too
- * 4. Token expiration not handled → Check token expiry
- * 5. Hydration mismatch → Use client-side only rendering
+ * References:
+ * - OWASP authentication cheat sheet
+ * - JWT best practices (RFC 8725)
  */
 export function ProtectedRoute({
   children,
@@ -36,7 +37,7 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, user, isLoading, checkAuth } = useAuthStore();
+  const { isAuthenticated, user, isLoading, checkAuth, refreshToken } = useAuthStore();
   const [isChecking, setIsChecking] = useState(true);
   const [redirectCount, setRedirectCount] = useState(0);
 
@@ -49,33 +50,23 @@ export function ProtectedRoute({
         return;
       }
 
-      // Check authentication status
-      const isAuthed = await checkAuth();
-
-      if (requireAuth && !isAuthed) {
-        // Store intended destination for post-login redirect
-        if (pathname !== "/login") {
-          sessionStorage.setItem("redirectAfterLogin", pathname);
-        }
-        setRedirectCount((prev) => prev + 1);
-        router.push("/login");
+      if (!requireAuth) {
+        setIsChecking(false);
         return;
       }
 
-      // Check role requirements
-      if (requireRole && user?.role !== requireRole && user?.role !== "owner") {
-        // Owners can access everything, staff has restrictions
-        if (requireRole === "owner" && user?.role !== "owner") {
-          router.push("/dashboard"); // Redirect staff away from owner-only pages
-          return;
-        }
+      // Check authentication status
+      const authenticated = await checkAuth();
+      
+      if (!authenticated) {
+        setRedirectCount(prev => prev + 1);
+        router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
+        return;
       }
 
-      // If no auth required but user is logged in, optionally redirect away from public auth pages
-      if (!requireAuth && isAuthed && pathname === "/login") {
-        const redirectTo = sessionStorage.getItem("redirectAfterLogin") || "/dashboard";
-        sessionStorage.removeItem("redirectAfterLogin");
-        router.push(redirectTo);
+      // Check role if required
+      if (requireRole && user?.role !== requireRole) {
+        router.push("/dashboard");
         return;
       }
 
@@ -83,30 +74,29 @@ export function ProtectedRoute({
     };
 
     validateAccess();
-  }, [requireAuth, requireRole, isAuthenticated, user, pathname, router, checkAuth, redirectCount]);
+  }, [requireAuth, requireRole, checkAuth, router, pathname, user, redirectCount]);
 
-  // Show loading state while checking authentication
+  // Auto-refresh token every 10 minutes
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const refreshInterval = setInterval(async () => {
+      await refreshToken();
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [isAuthenticated, refreshToken]);
+
+  // Show loading state while checking auth
   if (isLoading || isChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+    return fallback || (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
-  // If authentication is required but user is not authenticated, show nothing
-  // (redirect will happen)
-  if (requireAuth && !isAuthenticated) {
-    return fallback || null;
-  }
-
-  // If role is required but user doesn't have it, show nothing
-  // (redirect will happen)
-  if (requireRole && user?.role !== requireRole && user?.role !== "owner") {
-    return fallback || null;
-  }
-
-  // Render protected content
+  // Render children if authenticated or auth not required
   return <>{children}</>;
 }
 

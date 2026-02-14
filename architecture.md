@@ -2358,3 +2358,510 @@ docker-compose -f docker-compose.prod.yml build
 # Production run
 docker-compose -f docker-compose.prod.yml up -d
 ```
+
+---
+
+## 🧠 Phase 10: Advanced AI Feature Enhancements — Architecture
+
+> **Implementation Status Audit**: Features 2 and 8 have backend API code in place but no frontend. All others require both backend and frontend implementation.
+
+---
+
+### 10.1 Advanced Analytics Dashboard with AI Insights
+
+**Status**: ❌ NOT IMPLEMENTED
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   ANALYTICS PRESENTATION LAYER                   │
+│                  /dashboard/analytics (Next.js)                  │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────┐  ┌────────────────┐  ┌────────────────┐  │
+│  │  KPI Cards       │  │  Trend Charts  │  │  AI Insights   │  │
+│  │  (bookings,      │  │  (recharts)    │  │  Panel (Groq   │  │
+│  │   contacts,      │  │  Line + Bar    │  │   generated    │  │
+│  │   conversion,    │  │  7d/30d/90d    │  │   narrative)   │  │
+│  │   revenue)       │  │                │  │                │  │
+│  └──────────────────┘  └────────────────┘  └────────────────┘  │
+│  ┌──────────────────┐  ┌────────────────────────────────────┐  │
+│  │  Date Range      │  │  Comparison View                   │  │
+│  │  Selector        │  │  (this period vs previous period)  │  │
+│  └──────────────────┘  └────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ React Query  
+┌─────────────────────────────────────────────────────────────────┐
+│                      ANALYTICS API LAYER                         │
+│                    (FastAPI endpoints)                            │
+├─────────────────────────────────────────────────────────────────┤
+│  GET /api/v1/analytics/overview                                  │
+│    → Aggregates: total_bookings, total_contacts,                 │
+│      form_completion_rate, avg_response_time,                    │
+│      booking_conversion_rate, inventory_health_score             │
+│                                                                  │
+│  GET /api/v1/analytics/trends?period=7d|30d|90d                  │
+│    → Time-series: [{date, bookings, contacts, forms, revenue}]   │
+│                                                                  │
+│  GET /api/v1/analytics/ai-insights?period=30d                    │
+│    → Groq Llama 3.2 analyzes trend data and returns:             │
+│      { summary, highlights[], recommendations[], risk_areas[] }  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ SQLAlchemy ORM (aggregate queries)
+┌─────────────────────────────────────────────────────────────────┐
+│  bookings (COUNT, GROUP BY date)                                 │
+│  contacts (COUNT, GROUP BY source, date)                         │
+│  booking_forms (completion rate)                                 │
+│  conversations (response time avg)                               │
+│  inventory_items (health score)                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Data Model Extensions
+- No new tables required. Analytics are derived from aggregate queries on existing tables.
+- Add Redis caching layer for expensive aggregations (TTL: 5 minutes).
+
+#### AI Integration
+- **Groq Prompt**: "Given these business metrics for the past {period}: {json_data}. Provide a JSON analysis with: summary (2-3 sentence executive summary), highlights (top 3 positive trends), recommendations (top 3 actionable items), risk_areas (items needing attention)."
+- **Fallback**: If Groq unavailable, return pre-computed statistical summaries (top/bottom performers, percentage changes).
+
+---
+
+### 10.2 AI-Powered Demand Forecasting & Inventory Optimization
+
+**Status**: ⚠️ BACKEND IMPLEMENTED, FRONTEND MISSING
+
+#### Existing Backend (Already Implemented)
+```python
+# ai_service.py
+async def predict_demand(input_data: DemandForecastInput) -> DemandForecastResult
+def _rule_based_demand(input_data) -> DemandForecastResult
+
+# ai.py router
+POST /api/v1/ai/demand-forecast      → DemandForecastResponse
+GET  /api/v1/ai/inventory-optimization → {recommendations[], method, total_items}
+```
+
+#### Frontend Architecture (TO BUILD)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              DEMAND FORECAST WIDGET (recharts)                    │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Line Chart                                               │   │
+│  │  X-axis: dates (next 7-30 days)                           │   │
+│  │  Y-axis: predicted booking count                          │   │
+│  │  Bands: confidence interval (shaded area)                 │   │
+│  │  Tooltip: date, predicted_count, confidence %             │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌─────────────┐  ┌─────────────────────────────────────────┐  │
+│  │ Period: 7d  │  │ Method: AI | Rule-based  Confidence: 82%│  │
+│  │      14d    │  └─────────────────────────────────────────┘  │
+│  │      30d    │                                                │
+│  └─────────────┘                                                │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│          INVENTORY OPTIMIZATION RECOMMENDATIONS                  │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌────────┬──────────┬───────┬───────────┬──────────┬────────┐ │
+│  │ Item   │ Current  │ Thres │ Suggested │ Urgency  │ Action │ │
+│  ├────────┼──────────┼───────┼───────────┼──────────┼────────┤ │
+│  │ Gloves │ 5        │ 20    │ 40        │ 🔴 High  │ Restock│ │
+│  │ Masks  │ 15       │ 20    │ 40        │ 🟡 Med   │ Restock│ │
+│  └────────┴──────────┴───────┴───────────┴──────────┴────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 10.3 More Integration Options (WhatsApp, Slack)
+
+**Status**: ❌ NOT IMPLEMENTED
+
+#### Architecture
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│                     INTEGRATION LAYER (Extended)                   │
+├───────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐ ┌─────────────┐ ┌──────────┐ ┌──────────────┐  │
+│  │  SendGrid   │ │   Twilio    │ │  Google  │ │   AWS S3 /   │  │
+│  │  (Email)    │ │   (SMS)     │ │ Calendar │ │  Cloudinary  │  │
+│  │  ✅ Done    │ │   ✅ Done   │ │  ✅ Done │ │   ✅ Done    │  │
+│  └─────────────┘ └─────────────┘ └──────────┘ └──────────────┘  │
+│  ┌──────────────────────────┐ ┌──────────────────────────────┐   │
+│  │  WhatsApp Business API  │ │  Slack Web API               │   │
+│  │  ❌ TO BUILD            │ │  ❌ TO BUILD                 │   │
+│  └──────────────────────────┘ └──────────────────────────────┘   │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+#### WhatsApp Integration Design
+
+```
+Customer (WhatsApp)          CareOps                Meta Cloud API
+       │                        │                        │
+       ├── Sends Message ──────►│                        │
+       │                        │◄── Webhook POST ───────┤
+       │                        │    /api/v1/webhooks/    │
+       │                        │    whatsapp             │
+       │                        │                        │
+       │                        ├── Map to Conversation ─┤
+       │                        ├── Create/Update Contact │
+       │                        ├── Trigger Automation   │
+       │                        │                        │
+       │                        ├── Send Reply ─────────►│
+       │◄── Receives Reply ─────┤                        │
+```
+
+**Data Model**: Uses existing `Integration` model with `type: "whatsapp"`. Config stores: `phone_number_id`, `access_token`, `verify_token`, `business_account_id`.
+
+**Message Mapping**: WhatsApp messages mapped to existing `Message` model with `type: "whatsapp"`, `direction: "inbound" | "outbound"`.
+
+#### Slack Integration Design
+
+```
+CareOps Event                Slack Workspace
+    │                             │
+    ├── New Booking ─────────────►│ #bookings channel
+    ├── Low Inventory ───────────►│ #alerts channel
+    ├── New Contact ─────────────►│ #leads channel
+    ├── Overdue Form ────────────►│ #alerts channel
+    │                             │
+    │     OAuth2 Flow:            │
+    │  1. User clicks "Connect"   │
+    │  2. Redirect to Slack OAuth │
+    │  3. User authorizes app     │
+    │  4. Callback with code      │
+    │  5. Exchange for token      │
+    │  6. Store in Integration    │
+```
+
+**Data Model**: Uses existing `Integration` model with `type: "slack"`. Config stores: `bot_token`, `team_id`, `channel_mappings: {bookings: "#bookings", alerts: "#alerts", leads: "#leads"}`.
+
+---
+
+### 10.4 Multi-Language Support with NLP Translation
+
+**Status**: ❌ NOT IMPLEMENTED
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    INTERNATIONALIZATION LAYER                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Frontend (next-intl)                                            │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  locales/                                                 │   │
+│  │  ├── en.json    (English - default)                       │   │
+│  │  ├── es.json    (Spanish)                                 │   │
+│  │  ├── fr.json    (French)                                  │   │
+│  │  ├── hi.json    (Hindi)                                   │   │
+│  │  └── ar.json    (Arabic - RTL support)                    │   │
+│  │                                                           │   │
+│  │  middleware.ts → detect locale from Accept-Language header │   │
+│  │  Language selector dropdown in header + public pages      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  Backend (AI Translation)                                        │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  AIService.translate_text(text, source, target)           │   │
+│  │    → Groq Llama 3.2 translates text                       │   │
+│  │    → Fallback: return original text with warning          │   │
+│  │                                                           │   │
+│  │  Contact.preferred_language (new column)                   │   │
+│  │    → Auto-detected from inquiry text via Groq             │   │
+│  │    → Used for automated messages (welcome, confirmation)  │   │
+│  │                                                           │   │
+│  │  POST /api/v1/ai/translate                                │   │
+│  │    → {text, source_lang, target_lang} → {translated_text} │   │
+│  │                                                           │   │
+│  │  POST /api/v1/ai/detect-language                          │   │
+│  │    → {text} → {language_code, confidence}                 │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Customer-Facing Flow**: 
+1. Customer sends inquiry in Spanish → Groq detects language → sets `contact.preferred_language = "es"` 
+2. Automated messages (welcome, booking confirmation, reminders) are translated to Spanish before sending
+3. Staff sees original message + English translation side-by-side in inbox
+
+---
+
+### 10.5 Advanced Reporting with AI-Generated Summaries
+
+**Status**: ❌ NOT IMPLEMENTED
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    REPORTS PRESENTATION LAYER                     │
+│                    /dashboard/reports (Next.js)                   │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  AI Executive Summary Card                                │   │
+│  │  "This week saw a 15% increase in bookings compared to    │   │
+│  │   last week. Form completion rate improved to 82%.        │   │
+│  │   Inventory for 'Surgical Gloves' needs restocking."      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────┐  ┌────────────────────────────────────┐  │
+│  │  Period Selector  │  │  Comparison Toggle                 │  │
+│  │  Weekly / Monthly │  │  [vs Previous Period]              │  │
+│  │  Custom Range     │  │                                    │  │
+│  └──────────────────┘  └────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Report Table                                             │   │
+│  │  ┌────────────┬─────────┬──────────┬──────────┬────────┐ │   │
+│  │  │ Metric     │ Current │ Previous │ Change % │ Status │ │   │
+│  │  ├────────────┼─────────┼──────────┼──────────┼────────┤ │   │
+│  │  │ Bookings   │ 45      │ 39       │ +15.4%   │ ↑ Good │ │   │
+│  │  │ Contacts   │ 23      │ 18       │ +27.8%   │ ↑ Good │ │   │
+│  │  │ Forms Done │ 37/45   │ 30/39    │ +2.0%    │ → OK   │ │   │
+│  │  │ Inventory  │ 3 low   │ 1 low    │ -200%    │ ↓ Risk │ │   │
+│  │  └────────────┴─────────┴──────────┴──────────┴────────┘ │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Export: [CSV] [PDF]                                      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### API Endpoints
+
+```python
+# Reports Router (/api/v1/reports)
+GET  /weekly           → WeeklyReport (raw metrics)
+GET  /monthly          → MonthlyReport (raw metrics)
+POST /ai-summary       → {summary, highlights, risks, recommendations}
+GET  /export?format=csv&period=weekly  → CSV file download
+GET  /export?format=pdf&period=weekly  → PDF file download
+```
+
+#### AI Summary Generation
+- **Groq Prompt**: "You are a business operations analyst. Given this report data: {metrics_json}. Write a concise 3-paragraph executive summary covering: (1) overall performance, (2) key highlights and wins, (3) areas needing attention and recommendations. Be specific with numbers."
+- **Fallback**: Generate template-based summary from delta calculations.
+
+---
+
+### 10.6 AI-Driven Customer Segmentation & Targeting
+
+**Status**: ❌ NOT IMPLEMENTED
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   SEGMENTATION ENGINE                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Contact Model Extensions:                                       │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  + segment: String  (high-value | frequent | new |        │   │
+│  │                       at-risk | dormant | one-time)       │   │
+│  │  + tags: JSON[]     (["vip", "referral", "walked-in"])    │   │
+│  │  + lifetime_value: Float  (estimated revenue)             │   │
+│  │  + last_activity_at: DateTime                             │   │
+│  │  + total_bookings: Integer (denormalized for speed)       │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  Segmentation Rules (via Groq Llama 3.2):                        │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Input: contact activity history                          │   │
+│  │    - booking_count, last_booking_date, total_spent        │   │
+│  │    - message_count, avg_sentiment, form_completion_rate   │   │
+│  │                                                           │   │
+│  │  Output: { segment, confidence, reasoning }               │   │
+│  │                                                           │   │
+│  │  Rule-Based Fallback:                                     │   │
+│  │    - 0 bookings → "new"                                   │   │
+│  │    - 1 booking, no activity 30d+ → "one-time"             │   │
+│  │    - 3+ bookings, last 14d → "frequent"                   │   │
+│  │    - 5+ bookings, high spend → "high-value"               │   │
+│  │    - last activity 60d+ ago → "dormant"                   │   │
+│  │    - negative sentiment + no recent booking → "at-risk"   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  Targeting System:                                               │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  POST /api/v1/campaigns/send                              │   │
+│  │    → Select segment → Compose message → Send via          │   │
+│  │      email/SMS to all contacts in segment                 │   │
+│  │                                                           │   │
+│  │  Segment-Based Automation Rules:                          │   │
+│  │    - "dormant" contacts → auto-send re-engagement email   │   │
+│  │    - "at-risk" contacts → alert staff in inbox            │   │
+│  │    - "high-value" contacts → priority routing to owner    │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 10.7 Predictive Maintenance for Service Operations
+
+**Status**: ❌ NOT IMPLEMENTED
+
+#### Data Model
+
+```sql
+-- Equipment tracking
+CREATE TABLE equipment (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(100),            -- "medical_device", "office", "tool"
+    serial_number VARCHAR(100),
+    purchase_date DATE,
+    last_maintained_at TIMESTAMP,
+    maintenance_interval_days INTEGER DEFAULT 90,
+    status VARCHAR(50) DEFAULT 'active',  -- active, needs_maintenance, out_of_service
+    usage_count INTEGER DEFAULT 0,        -- times used (linked to bookings)
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Maintenance history
+CREATE TABLE maintenance_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    equipment_id UUID REFERENCES equipment(id) ON DELETE CASCADE,
+    performed_at TIMESTAMP NOT NULL,
+    performed_by UUID REFERENCES users(id),
+    maintenance_type VARCHAR(50),  -- "routine", "repair", "inspection"
+    cost DECIMAL(10,2),
+    notes TEXT,
+    next_due_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX ix_equipment_workspace ON equipment(workspace_id);
+CREATE INDEX ix_equipment_status ON equipment(workspace_id, status);
+CREATE INDEX ix_maintenance_logs_equipment ON maintenance_logs(equipment_id);
+```
+
+#### AI Prediction Flow
+
+```
+Equipment Data                  Groq Llama 3.2              Dashboard
+    │                                │                          │
+    ├── usage_count ────────────────►│                          │
+    ├── last_maintained_at ─────────►│ Analyze patterns         │
+    ├── maintenance_interval ───────►│ Predict failure          │
+    ├── maintenance_history ────────►│ probability              │
+    │                                │                          │
+    │                                ├── {equipment_id,    ────►│
+    │                                │    risk_level,            │
+    │                                │    days_until_due,        │
+    │                                │    recommendation}        │
+    │                                │                          │
+    │    Fallback:                   │                          │
+    │    if last_maintained +        │                          │
+    │    interval < today →          │                          │
+    │    "overdue"                   │                          │
+```
+
+---
+
+### 10.8 AI-Powered Chatbot for Customer Inquiries
+
+**Status**: ⚠️ BACKEND IMPLEMENTED, FRONTEND MISSING
+
+#### Existing Backend
+```python
+# ai_service.py — already implemented
+async def process_inquiry(inquiry, context) -> InquiryResult
+#   Returns: intent, sentiment, confidence, suggested_response
+
+# ai.py router — already implemented (but requires auth)
+POST /api/v1/ai/process-inquiry  → ProcessInquiryResponse
+```
+
+#### Public Chatbot Architecture (TO BUILD)
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│  Public Customer Page (/workspace/[slug])                      │
+│                                                                │
+│  ┌───────────────────────────────────────────────────────────┐│
+│  │  Page Content (booking, contact, forms)                    ││
+│  └───────────────────────────────────────────────────────────┘│
+│                                                                │
+│                                          ┌────────────────┐   │
+│                                          │  💬 Chat       │   │
+│                                          │  (floating     │   │
+│                                          │   bubble)      │   │
+│                                          └───────┬────────┘   │
+│                                                  │            │
+│  ┌───────────────────────────────────────────────▼──────────┐ │
+│  │  Chat Window (expandable)                                 │ │
+│  │  ┌─────────────────────────────────────────────────────┐  │ │
+│  │  │  🤖 Hi! I'm the CareOps assistant. How can I help? │  │ │
+│  │  │                                                     │  │ │
+│  │  │  👤 I'd like to book an appointment                 │  │ │
+│  │  │                                                     │  │ │
+│  │  │  🤖 I'd be happy to help you book! We offer:       │  │ │
+│  │  │     - General Consultation (30 min)                 │  │ │
+│  │  │     - Follow-up Visit (15 min)                      │  │ │
+│  │  │     Which service interests you?                    │  │ │
+│  │  │                                                     │  │ │
+│  │  │  ⌨ [Type your message...]           [Send]         │  │ │
+│  │  └─────────────────────────────────────────────────────┘  │ │
+│  └───────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────┘
+```
+
+#### New Public API Endpoint
+
+```python
+# public.py router (new endpoint, no auth required)
+POST /api/public/workspaces/{slug}/chat
+  Request:  { message: str, session_id?: str }
+  Response: {
+    reply: str,
+    intent: str,
+    sentiment: str,
+    confidence: float,
+    session_id: str,
+    method: "ai" | "rule-based"
+  }
+
+# Flow:
+# 1. Lookup workspace by slug
+# 2. Find or create anonymous Contact (session-based)
+# 3. Find or create Conversation for this contact
+# 4. Save customer message to Message table
+# 5. Call ai_service.process_inquiry() with context
+# 6. Save AI response to Message table
+# 7. Return response with metadata
+# 8. Rate limit: 5 messages/min per IP (slowapi)
+```
+
+#### Session Management
+- `session_id` is a UUID generated client-side and stored in `localStorage`
+- If no `session_id`, create new anonymous Contact with `source: "chatbot"`
+- Conversation is linked to this Contact, so staff can see the full chat history in their inbox
+
+---
+
+### 10.9 Feature Enhancement Summary — Architecture Impact
+
+| Feature | New Tables | New API Endpoints | New Frontend Pages | AI Service Methods | Dependencies |
+|---------|-----------|-------------------|-------------------|-------------------|--------------|
+| Analytics Dashboard | 0 (aggregates) | 3 | 1 (`/dashboard/analytics`) | `generate_insights()` | recharts |
+| Demand Forecast UI | 0 | 0 (existing) | 0 (widget) | 0 (existing) | recharts |
+| WhatsApp | 0 (uses Integration) | 2 | 0 (settings update) | 0 | Meta Cloud API SDK |
+| Slack | 0 (uses Integration) | 3 | 0 (settings update) | 0 | @slack/web-api |
+| Multi-Language | 0 (+1 column) | 2 | 0 (locale files) | `translate_text()`, `detect_language()` | next-intl |
+| Reports | 0 (aggregates) | 4 | 1 (`/dashboard/reports`) | `generate_summary()` | reportlab/weasyprint |
+| Segmentation | 0 (+4 columns) | 3 | 1 (contacts view) | `segment_contact()` | 0 |
+| Predictive Maintenance | 2 | 4 | 1 (`/dashboard/maintenance`) | `predict_maintenance()` | 0 |
+| Customer Chatbot | 0 | 1 | 1 (widget component) | 0 (existing) | 0 |

@@ -22,6 +22,14 @@ os.environ.setdefault("DATABASE_URL", "postgresql://postgres:postgres@localhost:
 from app.database import SessionLocal, engine
 from app.models.user import User, UserRole, StaffPermission
 from app.models.workspace import Workspace, WorkspaceStatus
+from app.models.contact import Contact
+from app.models.booking import Booking
+from app.models.conversation import Conversation
+from app.models.form import Form
+from app.models.integration import Integration
+from app.models.inventory import InventoryItem
+from app.models.job import Job
+from app.models.equipment import Equipment, MaintenanceLog
 from app.core.security import get_password_hash
 
 
@@ -33,38 +41,38 @@ def seed_database():
         # Check if data already exists
         existing_user = db.query(User).filter(User.email == "admin@careops.com").first()
         if existing_user:
-            print("⚠️  Test data already exists!")
-            print(f"   Owner: admin@careops.com / Admin@123")
-            print(f"   Staff: staff@careops.com / Staff@123")
+            print("Test data already exists!")
+            print("   Owner: admin@careops.com / Admin@123")
+            print("   Staff: staff@careops.com / Staff@123")
             return
         
-        print("🌱 Seeding database...")
+        print("Seeding database...")
         
-        # Create workspace
-        workspace = Workspace(
-            name="Demo Business",
-            contact_email="admin@careops.com",
-            status=WorkspaceStatus.ACTIVE,
-            is_active=True
-        )
-        db.add(workspace)
-        db.flush()
-        print(f"✅ Created workspace: {workspace.name}")
-        
-        # Create owner user
+        # Create owner user first (without workspace)
         owner = User(
             email="admin@careops.com",
             password_hash=get_password_hash("Admin@123"),
             name="Admin User",
             role=UserRole.OWNER,
-            workspace_id=workspace.id,
             is_active=True
         )
         db.add(owner)
         db.flush()
         
-        # Set workspace owner
-        workspace.owner_id = owner.id
+        # Create workspace with owner
+        workspace = Workspace(
+            name="Demo Business",
+            slug="demo-business",
+            contact_email="admin@careops.com",
+            status="active",
+            owner_id=owner.id
+        )
+        db.add(workspace)
+        db.flush()
+        print(f"Created workspace: {workspace.name}")
+        
+        # Link owner to workspace
+        owner.workspace_id = workspace.id
         
         # Create owner permissions (full access)
         owner_permissions = StaffPermission(
@@ -75,7 +83,7 @@ def seed_database():
             can_inventory=True
         )
         db.add(owner_permissions)
-        print(f"✅ Created owner: admin@careops.com / Admin@123")
+        print("Created owner: admin@careops.com / Admin@123")
         
         # Create staff user
         staff = User(
@@ -95,20 +103,20 @@ def seed_database():
             can_inbox=True,
             can_bookings=True,
             can_forms=True,
-            can_inventory=False  # Staff can't manage inventory
+            can_inventory=False
         )
         db.add(staff_permissions)
-        print(f"✅ Created staff: staff@careops.com / Staff@123")
+        print("Created staff: staff@careops.com / Staff@123")
         
         db.commit()
-        print("\n🎉 Database seeded successfully!")
+        print("\nDatabase seeded successfully!")
         print("\nLogin credentials:")
         print("  Owner:  admin@careops.com / Admin@123")
         print("  Staff:  staff@careops.com / Staff@123")
         
     except Exception as e:
         db.rollback()
-        print(f"❌ Error seeding database: {e}")
+        print(f"Error seeding database: {e}")
         raise
     finally:
         db.close()

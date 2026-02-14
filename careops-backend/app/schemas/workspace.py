@@ -10,7 +10,9 @@ from datetime import datetime
 class WorkspaceBase(BaseModel):
     """Base workspace schema."""
     name: str
+    description: Optional[str] = None
     address: Optional[str] = None
+    phone: Optional[str] = None
     timezone: str = "UTC"
     contact_email: EmailStr
 
@@ -23,7 +25,9 @@ class WorkspaceCreate(WorkspaceBase):
 class WorkspaceUpdate(BaseModel):
     """Schema for updating a workspace."""
     name: Optional[str] = None
+    description: Optional[str] = None
     address: Optional[str] = None
+    phone: Optional[str] = None
     timezone: Optional[str] = None
     contact_email: Optional[EmailStr] = None
 
@@ -31,6 +35,7 @@ class WorkspaceUpdate(BaseModel):
 class WorkspaceResponse(WorkspaceBase):
     """Schema for workspace response."""
     id: UUID
+    slug: str
     status: str
     owner_id: UUID
     created_at: datetime

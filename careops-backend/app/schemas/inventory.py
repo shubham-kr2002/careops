@@ -29,12 +29,11 @@ class InventoryItemCreate(InventoryItemBase):
 
 
 class InventoryItemUpdate(BaseModel):
-    """Schema for updating an inventory item."""
+    """Schema for updating an inventory item. total_quantity is only modified via transactions."""
     name: Optional[str] = None
     description: Optional[str] = None
     sku: Optional[str] = None
     category: Optional[str] = None
-    total_quantity: Optional[Decimal] = None
     min_threshold: Optional[Decimal] = None
     unit_cost: Optional[Decimal] = None
     unit_price: Optional[Decimal] = None

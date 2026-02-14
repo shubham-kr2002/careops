@@ -17,12 +17,14 @@ from app.schemas.integration import (
     IntegrationResponse
 )
 
-router = APIRouter(prefix="/api/integrations", tags=["integrations"])
+router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 
 
-def get_workspace_workspace(db: Session, current_user: User):
-    """Get the current user's workspace."""
+def get_workspace(db: Session, current_user: User):
+    """Get the current user's workspace (supports both owner and staff)."""
     workspace = db.query(Workspace).filter(Workspace.owner_id == current_user.id).first()
+    if not workspace and current_user.workspace_id:
+        workspace = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     return workspace
@@ -35,7 +37,7 @@ def create_integration(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new integration for the workspace."""
-    workspace = get_workspace_workspace(db, current_user)
+    workspace = get_workspace(db, current_user)
     
     # Check if integration type already exists for workspace
     existing = db.query(Integration).filter(
@@ -64,12 +66,14 @@ def create_integration(
 
 @router.get("/", response_model=List[IntegrationResponse])
 def list_integrations(
+    skip: int = 0,
+    limit: int = 50,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """List all integrations for the workspace."""
-    workspace = get_workspace_workspace(db, current_user)
-    return db.query(Integration).filter(Integration.workspace_id == workspace.id).all()
+    workspace = get_workspace(db, current_user)
+    return db.query(Integration).filter(Integration.workspace_id == workspace.id).offset(skip).limit(limit).all()
 
 
 @router.get("/{integration_id}", response_model=IntegrationResponse)
@@ -79,7 +83,7 @@ def get_integration(
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific integration."""
-    workspace = get_workspace_workspace(db, current_user)
+    workspace = get_workspace(db, current_user)
     integration = db.query(Integration).filter(
         Integration.id == integration_id,
         Integration.workspace_id == workspace.id
@@ -98,7 +102,7 @@ def update_integration(
     current_user: User = Depends(get_current_user)
 ):
     """Update an integration."""
-    workspace = get_workspace_workspace(db, current_user)
+    workspace = get_workspace(db, current_user)
     integration = db.query(Integration).filter(
         Integration.id == integration_id,
         Integration.workspace_id == workspace.id
@@ -122,7 +126,7 @@ def delete_integration(
     current_user: User = Depends(get_current_user)
 ):
     """Delete an integration."""
-    workspace = get_workspace_workspace(db, current_user)
+    workspace = get_workspace(db, current_user)
     integration = db.query(Integration).filter(
         Integration.id == integration_id,
         Integration.workspace_id == workspace.id

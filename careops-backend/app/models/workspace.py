@@ -21,10 +21,13 @@ class Workspace(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
+    slug = Column(String(255), unique=True, nullable=False, index=True)
+    description = Column(Text, nullable=True)
     address = Column(Text, nullable=True)
+    phone = Column(String(50), nullable=True)
     timezone = Column(String(50), default="UTC", nullable=False)
     contact_email = Column(String(255), nullable=False)
-    status = Column(String(20), default="pending", nullable=False)  # pending, active, suspended
+    status = Column(Enum(WorkspaceStatus), default=WorkspaceStatus.PENDING, nullable=False)
     
     # Owner
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
@@ -47,6 +50,7 @@ class Workspace(Base):
     inventory_items = relationship("InventoryItem", back_populates="workspace", cascade="all, delete-orphan")
     inventory_transactions = relationship("InventoryTransaction", back_populates="workspace", cascade="all, delete-orphan")
     jobs = relationship("Job", back_populates="workspace", cascade="all, delete-orphan")
+    equipment = relationship("Equipment", back_populates="workspace", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Workspace(id={self.id}, name={self.name}, status={self.status})>"

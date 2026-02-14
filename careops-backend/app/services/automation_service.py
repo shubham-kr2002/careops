@@ -77,7 +77,7 @@ class AutomationService:
             action=f"{rule.action_type}:{rule.slug}",
             status=AutomationStatus.RUNNING,
             started_at=started_at,
-            metadata=json.dumps(metadata) if metadata else None
+            extra_metadata=json.dumps(metadata) if metadata else None
         )
         self.db.add(log)
         self.db.commit()
@@ -350,6 +350,39 @@ class AutomationService:
         self.db.add(message)
         self.db.commit()
 
+    async def _action_send_booking_reminder(self, booking_id: UUID):
+        """Send a reminder for an upcoming booking."""
+        booking = self.db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            return
+
+        contact = booking.contact
+        if not contact:
+            return
+
+        # Find conversation
+        conversation = self.db.query(Conversation).filter(
+            Conversation.contact_id == contact.id,
+            Conversation.workspace_id == contact.workspace_id
+        ).first()
+
+        if not conversation:
+            return
+
+        booking_type = booking.booking_type
+        message_content = f"Reminder: Your appointment for {booking_type.name if booking_type else 'your service'} is coming up on {booking.scheduled_at.strftime('%B %d at %I:%M %p')}."
+        if booking.location:
+            message_content += f" Location: {booking.location}"
+
+        message = Message(
+            conversation_id=conversation.id,
+            type=MessageType.AUTO,
+            direction=MessageDirection.OUTBOUND,
+            content=message_content
+        )
+        self.db.add(message)
+        self.db.commit()
+
     async def _action_notify_low_inventory(self, item_id: UUID):
         """Send notification about low inventory."""
         item = self.db.query(InventoryItem).filter(InventoryItem.id == item_id).first()
@@ -480,7 +513,7 @@ async def process_scheduled_tasks(db: Session):
 
         try:
             if task.task_type == "booking_reminder":
-                await service._action_send_form_reminder(task.entity_id)
+                await service._action_send_booking_reminder(task.entity_id)
             elif task.task_type == "form_reminder":
                 await service._action_send_form_reminder(task.entity_id)
 

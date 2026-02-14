@@ -56,6 +56,7 @@ class MessageType(str, enum.Enum):
     """Message type enumeration."""
     EMAIL = "email"
     SMS = "sms"
+    WHATSAPP = "whatsapp"
     AUTO = "auto"  # Automated message
 
 

@@ -1518,3 +1518,639 @@ kubectl logs -f deployment/careops-backend
 - [ ] Previous Docker image tagged
 - [ ] Database rollback script ready
 - [ ] Rollback command tested
+
+---
+
+## 🧠 Phase 10: Advanced AI Feature Enhancement Workflows
+
+> Post-hackathon feature workflows. Each section includes Mermaid diagrams, step-by-step flow, error handling, and integration points.
+
+---
+
+### Workflow 10.1: Advanced Analytics Dashboard
+
+#### 10.1.1 Analytics Data Aggregation Flow
+
+```mermaid
+flowchart TD
+    A[User opens /dashboard/analytics] --> B[React Query fires 3 parallel requests]
+    B --> C1[GET /api/v1/analytics/overview]
+    B --> C2[GET /api/v1/analytics/trends?period=30d]
+    B --> C3[GET /api/v1/analytics/ai-insights?period=30d]
+    
+    C1 --> D1{Redis Cache Hit?}
+    D1 -->|Yes| E1[Return cached overview]
+    D1 -->|No| F1[Run aggregate queries on bookings, contacts, forms, inventory]
+    F1 --> G1[Cache result TTL=5min]
+    G1 --> E1
+    
+    C2 --> D2{Redis Cache Hit?}
+    D2 -->|Yes| E2[Return cached trends]
+    D2 -->|No| F2[Run GROUP BY date queries]
+    F2 --> G2[Cache result TTL=5min]
+    G2 --> E2
+    
+    C3 --> D3[Fetch raw metrics for period]
+    D3 --> H3{Groq Available?}
+    H3 -->|Yes| I3[Send metrics to Groq Llama 3.2]
+    I3 --> J3[Parse AI response: summary, highlights, recommendations, risks]
+    H3 -->|No| K3[Generate rule-based statistical summary]
+    K3 --> J3
+    J3 --> E3[Return AI insights]
+    
+    E1 --> L[Frontend renders KPI cards]
+    E2 --> M[Frontend renders trend charts via recharts]
+    E3 --> N[Frontend renders AI Insights panel]
+```
+
+#### 10.1.2 Analytics Aggregate Queries
+
+| Metric | Query | Table(s) |
+|--------|-------|----------|
+| Total Bookings | `SELECT COUNT(*) FROM bookings WHERE workspace_id = ? AND created_at >= ?` | bookings |
+| Total Contacts | `SELECT COUNT(*) FROM contacts WHERE workspace_id = ? AND created_at >= ?` | contacts |
+| Booking Conversion | `(completed bookings / total bookings) * 100` | bookings |
+| Form Completion Rate | `(completed forms / total forms) * 100` | booking_forms |
+| Avg Response Time | `AVG(first_reply_at - created_at)` | conversations |
+| Inventory Health | `COUNT(items WHERE quantity > reorder_threshold) / COUNT(items)` | inventory_items |
+
+#### 10.1.3 Error Handling
+- **Database timeout**: Return partial data with warning; cached data used if available
+- **Groq timeout (>10s)**: Fall back to rule-based summary; indicate method in response
+- **Empty data**: Return zero-filled metrics and "No data available for this period" insight
+
+---
+
+### Workflow 10.2: AI-Powered Demand Forecasting & Inventory Optimization
+
+#### 10.2.1 Demand Forecast Pipeline
+
+```mermaid
+flowchart TD
+    A[User clicks Demand Forecast tab] --> B[POST /api/v1/ai/demand-forecast]
+    B --> C[Backend fetches historical booking data]
+    C --> D[Compute: avg_daily, trend_direction, seasonal_pattern]
+    D --> E{Groq Available?}
+    
+    E -->|Yes| F[Send to Groq Llama 3.2 with prompt]
+    F --> G[Parse response: daily_predictions, confidence, recommendations]
+    
+    E -->|No| H[Rule-based calculation]
+    H --> H1[Base = avg_daily_bookings]
+    H1 --> H2[Apply day-of-week multiplier]
+    H2 --> H3[Apply seasonal adjustment]
+    H3 --> H4[Generate confidence based on data completeness]
+    H4 --> G
+    
+    G --> I[Return DemandForecastResult]
+    I --> J[Frontend renders line chart with confidence bands]
+    I --> K[Frontend shows recommendations cards]
+```
+
+#### 10.2.2 Inventory Optimization Cycle
+
+```mermaid
+flowchart TD
+    A[GET /api/v1/ai/inventory-optimization] --> B[Fetch all inventory items for workspace]
+    B --> C[Calculate for each item:]
+    C --> D{quantity < reorder_threshold?}
+    
+    D -->|Yes| E[Action: RESTOCK]
+    E --> E1[suggested_quantity = reorder_threshold * 2]
+    E1 --> E2[urgency = quantity == 0 ? CRITICAL : quantity < threshold/2 ? HIGH : MEDIUM]
+    
+    D -->|No| F{quantity > threshold * 5?}
+    F -->|Yes| G[Action: REDUCE]
+    F -->|No| H[Action: MONITOR]
+    
+    E2 --> I[Compile recommendations list]
+    G --> I
+    H --> I
+    
+    I --> J[Sort by urgency: CRITICAL → HIGH → MEDIUM → LOW]
+    J --> K[Return to frontend]
+    K --> L[Render sortable table with action buttons]
+```
+
+#### 10.2.3 Auto-Restock Integration (Future)
+When inventory drops below critical threshold:
+1. Create automated notification (email/SMS) to workspace owner
+2. If WhatsApp integration active, send alert
+3. If Slack integration active, post to #alerts channel
+4. Log automation action in `automation_logs` table
+
+---
+
+### Workflow 10.3: WhatsApp Integration Workflow
+
+#### 10.3.1 WhatsApp Setup Flow
+
+```mermaid
+flowchart TD
+    A[Admin opens Settings → Integrations → WhatsApp] --> B[Click Connect WhatsApp]
+    B --> C[Display setup form: Phone Number ID, Access Token, Verify Token]
+    C --> D[Admin enters Meta Cloud API credentials]
+    D --> E[POST /api/v1/integrations/whatsapp/configure]
+    E --> F[Validate credentials with Meta API]
+    
+    F -->|Valid| G[Save Integration record with type=whatsapp]
+    G --> H[Register webhook URL with Meta: POST /api/v1/webhooks/whatsapp]
+    H --> I[Meta sends verification GET with challenge]
+    I --> J[Backend responds with challenge token]
+    J --> K[✅ WhatsApp Connected - show green badge]
+    
+    F -->|Invalid| L[❌ Show error: Invalid credentials]
+```
+
+#### 10.3.2 Inbound WhatsApp Message Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Customer (WhatsApp)
+    participant M as Meta Cloud API
+    participant W as Webhook Handler
+    participant DB as Database
+    participant AI as AI Service
+    participant S as Staff (Dashboard)
+
+    C->>M: Sends message
+    M->>W: POST /api/v1/webhooks/whatsapp (webhook payload)
+    W->>W: Verify webhook signature (x-hub-signature-256)
+    W->>DB: Find or create Contact by phone number
+    W->>DB: Find or create Conversation (type=whatsapp)
+    W->>DB: Save Message (direction=inbound, type=whatsapp)
+    
+    W->>AI: process_inquiry(message_text, contact_context)
+    AI-->>W: {intent, sentiment, suggested_response, confidence}
+    
+    alt Auto-reply enabled AND confidence > 0.85
+        W->>M: Send auto-reply via Messages API
+        M->>C: Delivers auto-reply
+        W->>DB: Save Message (direction=outbound, type=whatsapp)
+    else Manual reply needed
+        W->>S: New message notification (real-time via WebSocket)
+        S->>W: Staff composes reply
+        W->>M: Send reply via Messages API
+        M->>C: Delivers staff reply
+    end
+```
+
+#### 10.3.3 Outbound WhatsApp Notification Flow
+
+```mermaid
+flowchart TD
+    A[Trigger Event] --> B{Event Type}
+    B -->|Booking Confirmed| C[Load booking confirmation template]
+    B -->|Booking Reminder| D[Load reminder template with time]
+    B -->|Form Required| E[Load form request with link]
+    B -->|Custom Message| F[Staff composes message]
+    
+    C --> G[Check contact.preferred_language]
+    D --> G
+    E --> G
+    F --> G
+    
+    G -->|Not English| H[Translate via AI]
+    G -->|English| I[Use original text]
+    H --> I
+    
+    I --> J[POST to Meta Messages API]
+    J --> K{Success?}
+    K -->|Yes| L[Log message in conversations]
+    K -->|No| M[Retry with exponential backoff 3x]
+    M -->|All failed| N[Mark as failed, alert staff]
+```
+
+---
+
+### Workflow 10.4: Slack Integration Workflow
+
+#### 10.4.1 Slack OAuth Setup
+
+```mermaid
+sequenceDiagram
+    participant A as Admin
+    participant FE as Frontend
+    participant BE as Backend
+    participant SL as Slack OAuth
+
+    A->>FE: Click "Connect Slack"
+    FE->>SL: Redirect to Slack OAuth URL with scopes
+    Note over SL: Scopes: chat:write, channels:read, incoming-webhook
+    SL->>A: "CareOps wants to access your workspace"
+    A->>SL: Click Allow
+    SL->>BE: Redirect callback with authorization code
+    BE->>SL: Exchange code for bot token (POST oauth.v2.access)
+    SL-->>BE: {access_token, team_id, bot_user_id}
+    BE->>BE: Save Integration (type=slack, config={bot_token, team_id, channels})
+    BE->>FE: ✅ Slack Connected
+    FE->>A: Show channel mapping configuration
+    A->>FE: Map: bookings→#bookings, alerts→#alerts, leads→#leads
+    FE->>BE: PUT /api/v1/integrations/slack/channels
+```
+
+#### 10.4.2 Slack Event Notification Flow
+
+```mermaid
+flowchart TD
+    A[CareOps Event Fired] --> B{Event Type}
+    
+    B -->|New Booking| C[Format: 📅 New booking: {service} for {contact} at {time}]
+    B -->|Low Inventory| D[Format: ⚠️ Low stock: {item} — {quantity} remaining]
+    B -->|New Contact| E[Format: 👤 New lead: {name} via {source}]
+    B -->|Overdue Form| F[Format: 📋 Overdue: {form_name} for {contact} — {days} days overdue]
+    B -->|Booking Cancelled| G[Format: ❌ Cancelled: {service} for {contact}]
+    
+    C --> H[Lookup channel mapping for event type]
+    D --> H
+    E --> H
+    F --> H
+    G --> H
+    
+    H --> I[Slack Web API: chat.postMessage]
+    I --> J{Success?}
+    J -->|Yes| K[Log notification sent]
+    J -->|No| L{Rate Limited?}
+    L -->|Yes| M[Queue for retry after retry_after seconds]
+    L -->|No| N[Log error, continue]
+```
+
+---
+
+### Workflow 10.5: Multi-Language Support Workflow
+
+#### 10.5.1 Language Detection & Translation Pipeline
+
+```mermaid
+flowchart TD
+    A[Incoming text from customer] --> B[POST /api/v1/ai/detect-language]
+    B --> C{Groq Available?}
+    C -->|Yes| D[Groq analyzes text, returns language_code + confidence]
+    C -->|No| E[Simple heuristic: character set analysis]
+    
+    D --> F{Confidence > 0.8?}
+    F -->|Yes| G[Set contact.preferred_language]
+    F -->|No| H[Default to English, flag for review]
+    E --> H
+    
+    G --> I{Language != English?}
+    I -->|Yes| J[POST /api/v1/ai/translate]
+    J --> K[Groq translates to English for staff view]
+    K --> L[Store original + translated in Message record]
+    
+    I -->|No| M[Store as-is]
+    H --> M
+    L --> N[Display in inbox: original text + English translation]
+    M --> N
+```
+
+#### 10.5.2 Outbound Translation Flow
+
+```mermaid
+flowchart TD
+    A[Staff sends reply / Automation sends message] --> B[Check contact.preferred_language]
+    B --> C{Language != English?}
+    
+    C -->|Yes| D[POST /api/v1/ai/translate with target_lang]
+    D --> E[Groq translates staff message to contact's language]
+    E --> F[Send translated version via channel]
+    F --> G[Store both versions in Message]
+    
+    C -->|No| H[Send as-is]
+    H --> G
+```
+
+#### 10.5.3 Frontend i18n Workflow (next-intl)
+1. `middleware.ts` detects locale from `Accept-Language` header → sets cookie
+2. Public pages load translation JSON from `locales/{lang}.json`
+3. User can manually select language from dropdown → updates cookie
+4. Dashboard always displays in English (staff interface)
+5. Customer-facing pages (`/workspace/[slug]/*`) honor selected language
+
+---
+
+### Workflow 10.6: Advanced Reporting Workflow
+
+#### 10.6.1 Report Generation Flow
+
+```mermaid
+flowchart TD
+    A[User opens /dashboard/reports] --> B[Select period: Weekly/Monthly/Custom]
+    B --> C[GET /api/v1/reports/{period}]
+    C --> D[Aggregate metrics from all tables]
+    D --> E[Return raw metrics]
+    
+    E --> F[Frontend renders comparison table]
+    E --> G[POST /api/v1/reports/ai-summary with raw metrics]
+    
+    G --> H{Groq Available?}
+    H -->|Yes| I[Groq generates 3-paragraph executive summary]
+    H -->|No| J[Template-based summary from deltas]
+    
+    I --> K[Frontend renders AI Summary card]
+    J --> K
+    
+    F --> L[User clicks Export]
+    L --> M{Format?}
+    M -->|CSV| N[GET /api/v1/reports/export?format=csv]
+    N --> O[Stream CSV file download]
+    M -->|PDF| P[GET /api/v1/reports/export?format=pdf]
+    P --> Q[Generate PDF with reportlab/weasyprint]
+    Q --> R[Stream PDF file download]
+```
+
+#### 10.6.2 Metrics Comparison Logic
+
+```python
+# Comparison algorithm
+def compare_periods(current_metrics, previous_metrics):
+    for metric in current_metrics:
+        change_pct = ((current - previous) / previous) * 100
+        status = "↑ Good" if change_pct > 5 else "↓ Risk" if change_pct < -5 else "→ OK"
+        # Exception: for negative metrics (cancellations, complaints),
+        # invert the status logic
+```
+
+#### 10.6.3 Scheduled Reports (Future Enhancement)
+- Cron job every Monday 8am: auto-generate weekly report
+- Send AI summary via email to workspace owner
+- If Slack connected, post summary to #reports channel
+
+---
+
+### Workflow 10.7: AI-Driven Customer Segmentation Workflow
+
+#### 10.7.1 Segmentation Engine Flow
+
+```mermaid
+flowchart TD
+    A[Trigger: Nightly cron / Manual / On new booking] --> B[Fetch contact activity data]
+    B --> C[For each contact, compute:]
+    C --> D[booking_count, last_booking, total_spent,
+            message_count, avg_sentiment, form_completion_rate]
+    
+    D --> E{Groq Available?}
+    E -->|Yes| F[Batch contacts to Groq for classification]
+    F --> G[AI returns: segment, confidence, reasoning per contact]
+    
+    E -->|No| H[Rule-based segmentation]
+    H --> H1{0 bookings?}
+    H1 -->|Yes| I1[Segment: NEW]
+    H1 -->|No| H2{1 booking, no activity 30d+?}
+    H2 -->|Yes| I2[Segment: ONE-TIME]
+    H2 -->|No| H3{3+ bookings in last 14d?}
+    H3 -->|Yes| I3[Segment: FREQUENT]
+    H3 -->|No| H4{5+ bookings, high spend?}
+    H4 -->|Yes| I4[Segment: HIGH-VALUE]
+    H4 -->|No| H5{Last activity 60d+ ago?}
+    H5 -->|Yes| I5[Segment: DORMANT]
+    H5 -->|No| H6{Negative sentiment + no recent booking?}
+    H6 -->|Yes| I6[Segment: AT-RISK]
+    H6 -->|No| I7[Segment: ACTIVE]
+    
+    I1 --> J[Update contact.segment in DB]
+    I2 --> J
+    I3 --> J
+    I4 --> J
+    I5 --> J
+    I6 --> J
+    I7 --> J
+    G --> J
+```
+
+#### 10.7.2 Segment-Based Targeting Workflow
+
+```mermaid
+sequenceDiagram
+    participant S as Staff
+    participant FE as Frontend
+    participant BE as Backend
+    participant E as Email/SMS
+
+    S->>FE: Navigate to Contacts → Segments view
+    FE->>BE: GET /api/v1/contacts?segment=dormant
+    BE-->>FE: List of dormant contacts (23 contacts)
+    
+    S->>FE: Click "Send Re-engagement Campaign"
+    FE->>S: Compose message dialog
+    S->>FE: "We miss you! Book today for 15% off"
+    FE->>BE: POST /api/v1/campaigns/send {segment: "dormant", message, channel: "email"}
+    
+    BE->>BE: Fetch all contacts with segment=dormant
+    loop For each contact
+        BE->>E: Send personalized email via SendGrid
+        BE->>BE: Log campaign delivery in automation_logs
+    end
+    
+    BE-->>FE: {sent: 23, failed: 0, campaign_id: "..."}
+    FE->>S: ✅ Campaign sent to 23 contacts
+```
+
+#### 10.7.3 Automated Segment Actions
+| Segment | Auto-Action | Channel |
+|---------|------------|---------|
+| dormant | Send re-engagement after 60d | Email |
+| at-risk | Alert staff in inbox | Dashboard notification |
+| high-value | Priority routing to workspace owner | Inbox + SMS |
+| new | Send welcome sequence (Day 0, Day 3, Day 7) | Email |
+| one-time | Send follow-up offer after 14d | Email |
+
+---
+
+### Workflow 10.8: Predictive Maintenance Workflow
+
+#### 10.8.1 Maintenance Prediction Pipeline
+
+```mermaid
+flowchart TD
+    A[Daily cron job / Admin opens Maintenance page] --> B[Fetch all equipment for workspace]
+    B --> C[For each equipment item:]
+    C --> D[Calculate: days_since_maintenance, usage_since_maintenance, 
+            maintenance_history, failure_patterns]
+    
+    D --> E{Groq Available?}
+    E -->|Yes| F[Send equipment data to Groq Llama 3.2]
+    F --> G[AI returns: risk_level, days_until_failure, recommendation, confidence]
+    
+    E -->|No| H[Rule-based prediction]
+    H --> H1[remaining_days = maintenance_interval - days_since_maintenance]
+    H1 --> H2{remaining_days < 0?}
+    H2 -->|Yes| I1[Risk: CRITICAL — Overdue]
+    H2 -->|No| H3{remaining_days < 7?}
+    H3 -->|Yes| I2[Risk: HIGH — Due soon]
+    H3 -->|No| H4{remaining_days < 14?}
+    H4 -->|Yes| I3[Risk: MEDIUM — Schedule soon]
+    H4 -->|No| I4[Risk: LOW — On track]
+    
+    I1 --> J[Compile maintenance dashboard]
+    I2 --> J
+    I3 --> J
+    I4 --> J
+    G --> J
+    
+    J --> K[Sort by risk: CRITICAL → HIGH → MEDIUM → LOW]
+    K --> L[Frontend renders maintenance table + risk indicators]
+    
+    L --> M{Any CRITICAL items?}
+    M -->|Yes| N[Auto-notify: email + Slack #alerts]
+    M -->|No| O[Display on dashboard only]
+```
+
+#### 10.8.2 Maintenance Log Workflow
+
+```mermaid
+sequenceDiagram
+    participant S as Staff
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as Database
+
+    S->>FE: Click equipment row → "Log Maintenance"
+    FE->>S: Maintenance form (type, notes, cost)
+    S->>FE: Fill form → Submit
+    FE->>BE: POST /api/v1/equipment/{id}/maintenance
+    
+    BE->>DB: Create maintenance_log record
+    BE->>DB: Update equipment.last_maintained_at = NOW()
+    BE->>DB: Update equipment.status = 'active'
+    BE->>DB: Calculate next_due = NOW() + maintenance_interval
+    BE->>DB: Update maintenance_log.next_due_at
+    
+    BE-->>FE: ✅ Maintenance logged
+    FE->>S: Equipment card updates to green status
+```
+
+#### 10.8.3 Equipment-Booking Linkage
+When a booking is completed:
+1. Check if service type maps to specific equipment
+2. Increment `equipment.usage_count += 1`
+3. If `usage_count > usage_threshold`, trigger early maintenance check
+4. This enables usage-based maintenance in addition to time-based
+
+---
+
+### Workflow 10.9: AI-Powered Customer Chatbot Workflow
+
+#### 10.9.1 Public Chatbot Conversation Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Customer (Browser)
+    participant FE as Chat Widget
+    participant BE as Backend (Public API)
+    participant AI as AI Service (Groq)
+    participant DB as Database
+
+    C->>FE: Opens public workspace page /workspace/[slug]
+    FE->>FE: Check localStorage for session_id
+    
+    alt No session_id
+        FE->>FE: Generate new UUID → store in localStorage
+    end
+    
+    C->>FE: Types message: "I want to book an appointment"
+    FE->>BE: POST /api/public/workspaces/{slug}/chat {message, session_id}
+    
+    BE->>DB: Lookup workspace by slug
+    BE->>DB: Find Contact by session_id or create anonymous Contact
+    BE->>DB: Find or create Conversation (type=chatbot)
+    BE->>DB: Save customer Message (direction=inbound)
+    
+    BE->>AI: process_inquiry(message, context={services, availability})
+    AI-->>BE: {intent: "booking", sentiment: "positive", confidence: 0.92, suggested_response: "..."}
+    
+    BE->>DB: Save AI Message (direction=outbound, sender=bot)
+    BE-->>FE: {reply, intent, sentiment, confidence, session_id, method: "ai"}
+    FE->>C: Display bot response in chat window
+    
+    Note over C,FE: Conversation continues...
+    
+    C->>FE: "Can I speak to someone?"
+    FE->>BE: POST /api/public/workspaces/{slug}/chat {message, session_id}
+    BE->>AI: process_inquiry → intent: "human_handoff"
+    BE->>DB: Update Conversation.status = 'needs_attention'
+    BE-->>FE: {reply: "I'll connect you with our team. They'll respond shortly!", intent: "human_handoff"}
+    
+    Note over BE: Staff sees conversation in their Inbox with full chat history
+```
+
+#### 10.9.2 Chat Widget State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Minimized: Page Load
+    Minimized --> Open: Click chat bubble
+    Open --> Typing: User starts typing
+    Typing --> Waiting: User sends message
+    Waiting --> Open: Bot response received
+    Open --> Minimized: Click minimize
+    Open --> HandedOff: intent=human_handoff
+    HandedOff --> Open: Staff replies
+    Open --> [*]: Page unload
+    
+    note right of Minimized: 💬 floating bubble\nwith unread badge
+    note right of Waiting: Typing indicator\n"Bot is thinking..."
+    note right of HandedOff: "Connected to staff"\nmessage updates via polling
+```
+
+#### 10.9.3 Rate Limiting & Abuse Prevention
+- **IP Rate Limit**: 5 messages/minute per IP (slowapi)
+- **Session Rate Limit**: 30 messages/hour per session_id
+- **Content Filter**: Check message length (max 500 chars)
+- **Spam Detection**: If 3 identical messages in 1 minute → block session for 5 min
+- **Profanity Filter**: Basic word list check before AI processing
+
+#### 10.9.4 Chatbot to Inbox Handoff
+When intent is `human_handoff` or confidence < 0.5 for 2 consecutive messages:
+1. Mark conversation `status = 'needs_attention'`
+2. Send real-time notification to staff dashboard
+3. Staff sees full conversation history (customer messages + bot responses)
+4. Staff can reply directly; response goes back to chatbot window
+5. Customer sees: "You're now chatting with [Staff Name]"
+
+---
+
+### Workflow 10.10: Cross-Feature Integration Points
+
+These workflows interact with each other. Key integration points:
+
+```mermaid
+flowchart LR
+    CHATBOT[Chatbot] -->|Creates contact| SEG[Segmentation]
+    CHATBOT -->|New inquiry| INBOX[Inbox]
+    
+    WA[WhatsApp] -->|Creates contact| SEG
+    WA -->|New message| INBOX
+    
+    SEG -->|Segment assigned| AUTO[Automation Rules]
+    AUTO -->|Send campaign| WA
+    AUTO -->|Send campaign| EMAIL[Email/SMS]
+    AUTO -->|Post notification| SLACK[Slack]
+    
+    ANALYTICS[Analytics] -->|Trend data| FORECAST[Demand Forecast]
+    FORECAST -->|Restock needed| SLACK
+    FORECAST -->|Restock needed| INVENTORY[Inventory]
+    
+    REPORTS[Reports] -->|Summary| SLACK
+    REPORTS -->|Uses data from| ANALYTICS
+    
+    MAINTENANCE[Maintenance] -->|Alerts| SLACK
+    MAINTENANCE -->|Uses| FORECAST
+    
+    TRANSLATE[Translation] -->|Used by| CHATBOT
+    TRANSLATE -->|Used by| WA
+    TRANSLATE -->|Used by| AUTO
+```
+
+#### Event Bus Pattern
+All features publish events to a shared event system:
+
+| Event | Published By | Consumed By |
+|-------|-------------|-------------|
+| `booking.created` | Bookings | Analytics, Reports, Slack, Equipment Usage |
+| `contact.created` | Contacts, Chatbot, WhatsApp | Segmentation, Slack, Analytics |
+| `message.received` | Inbox, WhatsApp, Chatbot | AI Processing, Translation |
+| `inventory.low` | Inventory Check | Slack, Email, Demand Forecast |
+| `equipment.overdue` | Maintenance Cron | Slack, Email, Dashboard Alert |
+| `segment.changed` | Segmentation Engine | Automation Rules |
+| `conversation.needs_attention` | Chatbot, AI | Staff Notification, Inbox |

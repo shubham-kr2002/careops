@@ -22,12 +22,14 @@ from app.schemas.booking import (
     BookingResponse
 )
 
-router = APIRouter(prefix="/api/bookings", tags=["bookings"])
+router = APIRouter(prefix="/api/v1/bookings", tags=["bookings"])
 
 
 def get_workspace(db: Session, current_user: User):
-    """Get the current user's workspace."""
+    """Get the current user's workspace (supports both owner and staff)."""
     workspace = db.query(Workspace).filter(Workspace.owner_id == current_user.id).first()
+    if not workspace and current_user.workspace_id:
+        workspace = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     return workspace
@@ -61,12 +63,14 @@ def create_booking_type(
 
 @router.get("/types", response_model=List[BookingTypeResponse])
 def list_booking_types(
+    skip: int = 0,
+    limit: int = 50,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """List all booking types for the workspace."""
     workspace = get_workspace(db, current_user)
-    return db.query(BookingType).filter(BookingType.workspace_id == workspace.id).all()
+    return db.query(BookingType).filter(BookingType.workspace_id == workspace.id).offset(skip).limit(limit).all()
 
 
 @router.get("/types/{booking_type_id}", response_model=BookingTypeResponse)
@@ -202,9 +206,11 @@ def create_booking(
         from app.services.automation_service import AutomationService
         automation_service = AutomationService(db)
         import asyncio
-        asyncio.get_event_loop().run_until_complete(
-            automation_service.on_booking_created(booking)
-        )
+        loop = asyncio.get_running_loop()
+        loop.create_task(automation_service.on_booking_created(booking))
+    except RuntimeError:
+        # No running event loop (shouldn't happen under ASGI)
+        pass
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"Automation trigger failed: {str(e)}")

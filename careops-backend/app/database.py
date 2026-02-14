@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from sqlalchemy.pool import QueuePool
 
 from app.config import settings
@@ -19,8 +18,10 @@ engine = create_engine(
 # Create sessionmaker
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create base class for models
-Base = declarative_base()
+
+# Create base class for models (SQLAlchemy 2.0 style)
+class Base(DeclarativeBase):
+    pass
 
 
 def get_db():

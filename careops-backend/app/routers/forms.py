@@ -18,12 +18,14 @@ from app.schemas.form import (
     BookingFormResponse
 )
 
-router = APIRouter(prefix="/api/forms", tags=["forms"])
+router = APIRouter(prefix="/api/v1/forms", tags=["forms"])
 
 
 def get_workspace(db: Session, current_user: User):
-    """Get the current user's workspace."""
+    """Get the current user's workspace (supports both owner and staff)."""
     workspace = db.query(Workspace).filter(Workspace.owner_id == current_user.id).first()
+    if not workspace and current_user.workspace_id:
+        workspace = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     return workspace
@@ -54,12 +56,14 @@ def create_form(
 
 @router.get("/", response_model=List[FormResponse])
 def list_forms(
+    skip: int = 0,
+    limit: int = 50,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """List all forms for the workspace."""
     workspace = get_workspace(db, current_user)
-    return db.query(Form).filter(Form.workspace_id == workspace.id).all()
+    return db.query(Form).filter(Form.workspace_id == workspace.id).offset(skip).limit(limit).all()
 
 
 @router.get("/{form_id}", response_model=FormResponse)

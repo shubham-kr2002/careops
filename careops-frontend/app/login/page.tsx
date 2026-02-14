@@ -1,5 +1,6 @@
 import { LoginForm } from "@/components/common/LoginForm";
 import { Metadata } from "next";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Login - CareOps",
@@ -121,7 +122,9 @@ export default function LoginPage() {
 
         {/* Login Form Container */}
         <div className="w-full max-w-md animate-fadeInUp">
-          <LoginForm />
+          <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+            <LoginForm />
+          </Suspense>
         </div>
 
         {/* Footer */}

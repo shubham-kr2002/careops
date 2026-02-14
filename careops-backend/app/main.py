@@ -11,6 +11,7 @@ from app.core.security_headers import SecurityHeadersMiddleware
 from app.database import engine, Base
 from app.routers import auth
 from app.routers import workspaces, integrations, contacts, bookings, forms, inventory, conversations, public, staff, automation, ai
+from app.routers import analytics, reports, equipment, webhooks
 
 # Create database tables (for development)
 Base.metadata.create_all(bind=engine)
@@ -56,6 +57,10 @@ app.include_router(public.router)
 app.include_router(staff.router)
 app.include_router(automation.router)
 app.include_router(ai.router)
+app.include_router(analytics.router)
+app.include_router(reports.router)
+app.include_router(equipment.router)
+app.include_router(webhooks.router)
 
 
 @app.get("/")

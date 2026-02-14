@@ -17,12 +17,14 @@ from app.schemas.contact import (
     ContactResponse
 )
 
-router = APIRouter(prefix="/api/contacts", tags=["contacts"])
+router = APIRouter(prefix="/api/v1/contacts", tags=["contacts"])
 
 
 def get_workspace(db: Session, current_user: User):
-    """Get the current user's workspace."""
+    """Get the current user's workspace (supports both owner and staff)."""
     workspace = db.query(Workspace).filter(Workspace.owner_id == current_user.id).first()
+    if not workspace and current_user.workspace_id:
+        workspace = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     return workspace
@@ -53,11 +55,13 @@ def create_contact(
     try:
         from app.services.automation_service import AutomationService
         automation_service = AutomationService(db)
-        # Run async function in sync context
+        # Use create_task for async function in running event loop (ASGI)
         import asyncio
-        asyncio.get_event_loop().run_until_complete(
-            automation_service.on_contact_created(contact)
-        )
+        loop = asyncio.get_running_loop()
+        loop.create_task(automation_service.on_contact_created(contact))
+    except RuntimeError:
+        # No running event loop (shouldn't happen under ASGI)
+        pass
     except Exception as e:
         # Log but don't fail the request
         import logging

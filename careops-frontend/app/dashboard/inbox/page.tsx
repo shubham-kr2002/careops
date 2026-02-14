@@ -173,8 +173,9 @@ export default function InboxPage() {
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className="md:hidden p-2 hover:bg-[var(--neutral-100)] rounded-lg"
+                  aria-label="Back to conversations"
                 >
-                  <ArrowLeft className="w-5 h-5 text-[var(--neutral-500)]" />
+                  <ArrowLeft className="w-5 h-5 text-[var(--neutral-500)]" aria-hidden="true" />
                 </button>
                 <div className="relative">
                   <div className="w-10 h-10 rounded-full bg-[var(--primary-100)] flex items-center justify-center">
@@ -197,11 +198,12 @@ export default function InboxPage() {
                       : 'hover:bg-[var(--neutral-100)]'
                   }`}
                   title={automationPaused ? 'Resume Automation' : 'Pause Automation'}
+                  aria-label={automationPaused ? 'Resume automation' : 'Pause automation'}
                 >
                   {automationPaused ? (
-                    <Play className="w-5 h-5 text-amber-600" />
+                    <Play className="w-5 h-5 text-amber-600" aria-hidden="true" />
                   ) : (
-                    <Pause className="w-5 h-5 text-[var(--neutral-500)]" />
+                    <Pause className="w-5 h-5 text-[var(--neutral-500)]" aria-hidden="true" />
                   )}
                 </button>
                 {automationPaused && (
@@ -209,14 +211,14 @@ export default function InboxPage() {
                     Auto paused
                   </span>
                 )}
-                <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg">
-                  <Phone className="w-5 h-5 text-[var(--neutral-500)]" />
+                <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg" aria-label="Start phone call">
+                  <Phone className="w-5 h-5 text-[var(--neutral-500)]" aria-hidden="true" />
                 </button>
-                <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg">
-                  <Video className="w-5 h-5 text-[var(--neutral-500)]" />
+                <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg" aria-label="Start video call">
+                  <Video className="w-5 h-5 text-[var(--neutral-500)]" aria-hidden="true" />
                 </button>
-                <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg">
-                  <MoreVertical className="w-5 h-5 text-[var(--neutral-500)]" />
+                <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg" aria-label="More options">
+                  <MoreVertical className="w-5 h-5 text-[var(--neutral-500)]" aria-hidden="true" />
                 </button>
               </div>
 
@@ -246,11 +248,11 @@ export default function InboxPage() {
               {/* Input Area */}
               <div className="p-4 border-t border-[var(--neutral-200)]">
                 <div className="flex items-center gap-2">
-                  <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg">
-                    <Paperclip className="w-5 h-5 text-[var(--neutral-500)]" />
+                  <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg" aria-label="Attach file">
+                    <Paperclip className="w-5 h-5 text-[var(--neutral-500)]" aria-hidden="true" />
                   </button>
-                  <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg">
-                    <Smile className="w-5 h-5 text-[var(--neutral-500)]" />
+                  <button className="p-2 hover:bg-[var(--neutral-100)] rounded-lg" aria-label="Add emoji">
+                    <Smile className="w-5 h-5 text-[var(--neutral-500)]" aria-hidden="true" />
                   </button>
                   <input
                     type="text"
@@ -263,8 +265,9 @@ export default function InboxPage() {
                   <button 
                     onClick={handleSendMessage}
                     className="p-2.5 bg-[var(--primary-600)] hover:bg-[var(--primary-700)] text-white rounded-lg transition-colors"
+                    aria-label="Send message"
                   >
-                    <Send className="w-5 h-5" />
+                    <Send className="w-5 h-5" aria-hidden="true" />
                   </button>
                 </div>
               </div>

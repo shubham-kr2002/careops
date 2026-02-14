@@ -52,8 +52,8 @@ class Job(Base):
     notes = Column(Text, nullable=True)
     internal_notes = Column(Text, nullable=True)
     
-    # Metadata
-    metadata = Column(JSONB, nullable=True)
+    # Job metadata
+    job_metadata = Column("metadata", JSONB, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

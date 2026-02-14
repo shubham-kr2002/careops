@@ -4,11 +4,14 @@ import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Calendar, Cloud, Webhook, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Calendar, Cloud, Webhook, Mail, CheckCircle, XCircle, Loader2, ShieldAlert } from 'lucide-react'
+import { useAuthStore } from '@/store/authStore'
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
 interface Integration {
   id: string
-  type: 'email' | 'sms' | 'calendar' | 'storage' | 'webhook'
+  type: 'email_sendgrid' | 'email_gmail' | 'sms' | 'calendar' | 'storage' | 'webhook'
   name: string
   status: 'pending' | 'active' | 'error'
   is_active: boolean
@@ -17,13 +20,29 @@ interface Integration {
 }
 
 export default function IntegrationsPage() {
+  const { user } = useAuthStore()
+  const isOwner = user?.role === 'owner'
+
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(false)
+  const [showEmailConfig, setShowEmailConfig] = useState(false)
   const [showCalendarConfig, setShowCalendarConfig] = useState(false)
   const [showStorageConfig, setShowStorageConfig] = useState(false)
   const [showWebhookConfig, setShowWebhookConfig] = useState(false)
+  const [emailProvider, setEmailProvider] = useState<'sendgrid' | 'gmail'>('sendgrid')
   
   // Form states
+  const [emailConfig, setEmailConfig] = useState({
+    // SendGrid
+    sendgrid_api_key: '',
+    sendgrid_from_email: '',
+    // Gmail
+    gmail_client_id: '',
+    gmail_client_secret: '',
+    gmail_email: '',
+    gmail_redirect_uri: ''
+  })
+  
   const [calendarConfig, setCalendarConfig] = useState({
     client_id: '',
     client_secret: '',
@@ -45,6 +64,20 @@ export default function IntegrationsPage() {
   })
 
   const integrationTypes = [
+    {
+      type: 'email_gmail',
+      name: 'Gmail',
+      description: 'Send emails via Gmail API',
+      icon: Mail,
+      color: 'bg-red-500'
+    },
+    {
+      type: 'email_sendgrid',
+      name: 'SendGrid',
+      description: 'Send emails via SendGrid',
+      icon: Mail,
+      color: 'bg-blue-500'
+    },
     {
       type: 'calendar',
       name: 'Google Calendar',
@@ -96,11 +129,11 @@ export default function IntegrationsPage() {
     // For now, we'll simulate the config save
     setLoading(true)
     try {
-      const response = await fetch('/api/v1/integrations/', {
+      const response = await fetch(`${API_BASE_URL}/integrations/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify({
           type: 'calendar',
@@ -120,11 +153,11 @@ export default function IntegrationsPage() {
   const handleStorageConnect = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/v1/integrations/', {
+      const response = await fetch(`${API_BASE_URL}/integrations/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify({
           type: 'storage',
@@ -144,11 +177,11 @@ export default function IntegrationsPage() {
   const handleWebhookCreate = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/v1/integrations/', {
+      const response = await fetch(`${API_BASE_URL}/integrations/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify({
           type: 'webhook',
@@ -165,6 +198,23 @@ export default function IntegrationsPage() {
     setLoading(false)
   }
 
+  // Staff cannot access integrations settings
+  if (!isOwner) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl">
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-12 text-center">
+            <ShieldAlert className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-[var(--neutral-900)] mb-2">Owner Access Required</h2>
+            <p className="text-sm text-[var(--neutral-500)]">
+              Only workspace owners can manage integrations. Contact your workspace owner for access.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="mb-8">
@@ -175,6 +225,122 @@ export default function IntegrationsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* Email Integration */}
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-red-500 flex items-center justify-center">
+              <Mail className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <CardTitle>Email</CardTitle>
+              <CardDescription>Configure email provider (Gmail or SendGrid)</CardDescription>
+            </div>
+            {getStatusBadge('pending')}
+          </CardHeader>
+          <CardContent>
+            {showEmailConfig ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Email Provider</label>
+                  <select
+                    value={emailProvider}
+                    onChange={(e) => setEmailProvider(e.target.value as 'sendgrid' | 'gmail')}
+                    className="w-full mt-1 px-3 py-2 border rounded-md"
+                  >
+                    <option value="gmail">Gmail API</option>
+                    <option value="sendgrid">SendGrid</option>
+                  </select>
+                </div>
+                
+                {emailProvider === 'gmail' ? (
+                  <>
+                    <div>
+                      <label className="text-sm font-medium">Client ID</label>
+                      <Input
+                        type="text"
+                        value={emailConfig.gmail_client_id}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, gmail_client_id: e.target.value })}
+                        placeholder="Enter your Gmail OAuth Client ID"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Client Secret</label>
+                      <Input
+                        type="password"
+                        value={emailConfig.gmail_client_secret}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, gmail_client_secret: e.target.value })}
+                        placeholder="Enter your Gmail OAuth Client Secret"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Email Address</label>
+                      <Input
+                        type="email"
+                        value={emailConfig.gmail_email}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, gmail_email: e.target.value })}
+                        placeholder="your-email@gmail.com"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Redirect URI</label>
+                      <Input
+                        type="text"
+                        value={emailConfig.gmail_redirect_uri}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, gmail_redirect_uri: e.target.value })}
+                        placeholder="https://your-domain.com/api/v1/integrations/gmail/callback"
+                        className="mt-1"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-sm font-medium">API Key</label>
+                      <Input
+                        type="password"
+                        value={emailConfig.sendgrid_api_key}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, sendgrid_api_key: e.target.value })}
+                        placeholder="Enter your SendGrid API Key"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">From Email</label>
+                      <Input
+                        type="email"
+                        value={emailConfig.sendgrid_from_email}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, sendgrid_from_email: e.target.value })}
+                        placeholder="noreply@yourdomain.com"
+                        className="mt-1"
+                      />
+                    </div>
+                  </>
+                )}
+                
+                <div className="flex gap-2">
+                  <Button onClick={() => {
+                    // Save email config - in production, this would call the API
+                    // TODO: implement email config save via API
+                    setShowEmailConfig(false)
+                  }} disabled={loading}>
+                    {loading ? 'Saving...' : 'Save'}
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowEmailConfig(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button onClick={() => setShowEmailConfig(true)}>
+                Configure Email
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Google Calendar */}
         <Card>
           <CardHeader className="flex flex-row items-center gap-4">

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel, Field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.database import get_db
 from app.models.workspace import Workspace
@@ -25,6 +25,16 @@ from app.services.ai_service import (
 )
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI"])
+
+
+def get_workspace(db: Session, current_user: User) -> Workspace:
+    """Get the current user's workspace (supports both owner and staff)."""
+    workspace = db.query(Workspace).filter(Workspace.owner_id == current_user.id).first()
+    if not workspace and current_user.workspace_id:
+        workspace = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return workspace
 
 
 # ============ Request/Response Schemas ============
@@ -109,14 +119,8 @@ async def process_customer_inquiry(
 ):
     """Process customer inquiry with AI to detect intent and sentiment"""
     
-    # Get workspace
-    workspace = db.query(Workspace).filter(
-        Workspace.owner_id == current_user.id
-    ).first()
-    
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    
+    workspace = get_workspace(db, current_user)
+
     # Get conversation context
     from app.models.conversation import Conversation, Message
     conversation = db.query(Conversation).filter(
@@ -127,13 +131,17 @@ async def process_customer_inquiry(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
     
-    # Build context
+    # Build context — fetch only last 5 messages via query (avoid lazy-loading all messages)
+    recent_messages = db.query(Message).filter(
+        Message.conversation_id == conversation.id
+    ).order_by(Message.created_at.desc()).limit(5).all()
+    
     context = InquiryContext(
         contact_name=conversation.contact.name if conversation.contact else None,
         contact_email=conversation.contact.email if conversation.contact else None,
         previous_conversation=[
-            m.content for m in conversation.messages[-5:]
-        ] if conversation.messages else None,
+            m.content for m in reversed(recent_messages)
+        ] if recent_messages else None,
         workspace_services=None,  # Could fetch from booking_types
         booking_history=0,
     )
@@ -160,16 +168,10 @@ async def get_demand_forecast(
 ):
     """Get demand forecast based on historical booking data"""
     
-    # Get workspace
-    workspace = db.query(Workspace).filter(
-        Workspace.owner_id == current_user.id
-    ).first()
-    
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    
+    workspace = get_workspace(db, current_user)
+
     # Get historical booking data (last 30 days)
-    start_date = datetime.utcnow() - timedelta(days=30)
+    start_date = datetime.now(timezone.utc) - timedelta(days=30)
     bookings = db.query(Booking).filter(
         Booking.workspace_id == workspace.id,
         Booking.created_at >= start_date,
@@ -219,14 +221,8 @@ async def route_to_staff(
 ):
     """Route inquiry to appropriate staff member based on skills"""
     
-    # Get workspace
-    workspace = db.query(Workspace).filter(
-        Workspace.owner_id == current_user.id
-    ).first()
-    
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    
+    workspace = get_workspace(db, current_user)
+
     # Get staff members for workspace (excluding owner)
     staff_members = []
     users = db.query(User).filter(
@@ -285,14 +281,8 @@ async def get_inventory_optimization(
 ):
     """Get AI-powered inventory optimization recommendations"""
     
-    # Get workspace
-    workspace = db.query(Workspace).filter(
-        Workspace.owner_id == current_user.id
-    ).first()
-    
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    
+    workspace = get_workspace(db, current_user)
+
     # Get inventory items
     from app.models.inventory import InventoryItem
     items = db.query(InventoryItem).filter(
@@ -302,15 +292,15 @@ async def get_inventory_optimization(
     # Simple optimization recommendations
     recommendations = []
     for item in items:
-        if item.quantity <= item.threshold:
+        if item.min_threshold is not None and item.total_quantity <= item.min_threshold:
             recommendations.append({
                 "item_id": str(item.id),
                 "item_name": item.name,
-                "current_quantity": item.quantity,
-                "threshold": item.threshold,
+                "current_quantity": float(item.total_quantity),
+                "threshold": float(item.min_threshold),
                 "recommendation": "restock",
-                "suggested_quantity": item.threshold * 2,
-                "urgency": "high" if item.quantity < item.threshold * 0.5 else "medium",
+                "suggested_quantity": float(item.min_threshold) * 2,
+                "urgency": "high" if float(item.total_quantity) < float(item.min_threshold) * 0.5 else "medium",
             })
     
     return {
@@ -319,3 +309,121 @@ async def get_inventory_optimization(
         "total_items": len(items),
         "items_needing_attention": len(recommendations),
     }
+
+
+# ============ New AI Endpoints (Phase 10) ============
+
+class TranslateRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+    target_language: str = Field(..., min_length=2, max_length=10)
+    source_language: str = Field(default="auto")
+
+
+class DetectLanguageRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+
+
+class SegmentContactsRequest(BaseModel):
+    contact_ids: Optional[List[UUID]] = None  # None = all contacts
+
+
+class MaintenancePredictionRequest(BaseModel):
+    equipment_ids: Optional[List[UUID]] = None  # None = all equipment
+
+
+@router.post("/translate")
+async def translate_text(
+    request: TranslateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Translate text to target language using AI."""
+    result = await ai_service.translate_text(
+        text=request.text,
+        target_language=request.target_language,
+        source_language=request.source_language,
+    )
+    return result
+
+
+@router.post("/detect-language")
+async def detect_language(
+    request: DetectLanguageRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Detect the language of a text using AI."""
+    result = await ai_service.detect_language(request.text)
+    return result
+
+
+@router.post("/segment-contacts")
+async def segment_contacts(
+    request: SegmentContactsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """AI-powered contact segmentation."""
+    workspace = get_workspace(db, current_user)
+
+    query = db.query(Contact).filter(Contact.workspace_id == workspace.id)
+    if request.contact_ids:
+        query = query.filter(Contact.id.in_(request.contact_ids))
+
+    contacts = query.limit(100).all()
+    results = []
+
+    for contact in contacts:
+        activity_data = {
+            "total_bookings": contact.total_bookings or 0,
+            "lifetime_value": contact.lifetime_value or 0,
+            "last_activity": str(contact.last_activity_at) if contact.last_activity_at else "never",
+            "created_at": str(contact.created_at),
+        }
+        segment_result = await ai_service.segment_contact(activity_data)
+
+        # Update contact segment in DB
+        contact.segment = segment_result.get("segment", "regular")
+        results.append({
+            "contact_id": str(contact.id),
+            "name": contact.name,
+            **segment_result,
+        })
+
+    db.commit()
+    return {"segmented": len(results), "results": results}
+
+
+@router.post("/maintenance-predictions")
+async def maintenance_predictions(
+    request: MaintenancePredictionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """AI-powered maintenance predictions for equipment."""
+    workspace = get_workspace(db, current_user)
+
+    from app.models.equipment import Equipment
+    query = db.query(Equipment).filter(Equipment.workspace_id == workspace.id)
+    if request.equipment_ids:
+        query = query.filter(Equipment.id.in_(request.equipment_ids))
+
+    equipment_list = query.all()
+    results = []
+
+    for eq in equipment_list:
+        eq_data = {
+            "name": eq.name,
+            "type": eq.type or "general",
+            "last_maintained": str(eq.last_maintained_at) if eq.last_maintained_at else None,
+            "interval_days": eq.maintenance_interval_days,
+            "usage_count": eq.usage_count or 0,
+            "status": eq.status.value if eq.status else "active",
+            "age_days": (datetime.now(timezone.utc) - eq.purchase_date).days if eq.purchase_date else 0,
+        }
+        prediction = await ai_service.predict_maintenance(eq_data)
+        results.append({
+            "equipment_id": str(eq.id),
+            "equipment_name": eq.name,
+            **prediction,
+        })
+
+    return {"total": len(results), "predictions": results}

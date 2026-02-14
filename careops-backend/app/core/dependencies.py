@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from uuid import UUID
 from app.database import get_db
 from app.core.security import verify_token
 from app.models.user import User, UserRole
@@ -43,7 +44,7 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == UUID(user_id)).first()
     
     if user is None:
         raise HTTPException(

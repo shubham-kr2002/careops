@@ -39,7 +39,7 @@ class BookingType(Base):
     is_virtual = Column(Boolean, default=False, nullable=False)
     
     # Form IDs to send after booking
-    form_ids = Column(ARRAY(UUID), default=[], nullable=True)
+    form_ids = Column(ARRAY(UUID), default=list, nullable=True)
     
     # Pricing
     price = Column(String(50), nullable=True)  # as string for flexibility

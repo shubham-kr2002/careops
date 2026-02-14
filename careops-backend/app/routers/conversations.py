@@ -3,6 +3,7 @@ Conversation Router - Handles conversations and messages
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 from uuid import UUID
 from pydantic import BaseModel, Field
@@ -17,8 +18,10 @@ router = APIRouter(prefix="/api/v1/conversations", tags=["conversations"])
 
 
 def get_workspace(db: Session, current_user: User):
-    """Get the current user's workspace."""
+    """Get the current user's workspace (supports both owner and staff)."""
     workspace = db.query(Workspace).filter(Workspace.owner_id == current_user.id).first()
+    if not workspace and current_user.workspace_id:
+        workspace = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     return workspace
@@ -87,8 +90,16 @@ def list_conversations(
     
     result = []
     for conv in conversations:
-        last_msg = conv.messages[-1] if conv.messages else None
-        unread_count = sum(1 for m in conv.messages if m.direction == MessageDirection.INBOUND and not hasattr(m, 'read'))
+        # Get last message via query instead of lazy-loading all messages (Bug #17)
+        last_msg = db.query(Message).filter(
+            Message.conversation_id == conv.id
+        ).order_by(Message.created_at.desc()).first()
+
+        # Count inbound messages as "unread" (Bug #18 - no 'read' field exists on Message)
+        unread_count = db.query(func.count(Message.id)).filter(
+            Message.conversation_id == conv.id,
+            Message.direction == MessageDirection.INBOUND
+        ).scalar() or 0
         
         result.append(ConversationListResponse(
             id=conv.id,
@@ -197,7 +208,6 @@ def create_message(
         type=MessageType.SMS,  # Default to SMS for staff messages
         direction=MessageDirection.OUTBOUND,
         content=message_data.content,
-        created_by_id=current_user.id
     )
     db.add(message)
     

@@ -64,7 +64,7 @@ const mockAlerts: Alert[] = [
     description: 'ABC Company wants a quote for consulting',
     time: '1 hour ago',
     severity: 'success',
-    actionUrl: '/dashboard/leads'
+    actionUrl: '/dashboard/bookings'
   },
   {
     id: '5',

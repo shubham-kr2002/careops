@@ -43,16 +43,18 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "usb=()"
         )
         
-        # Content Security Policy
+        # Content Security Policy - Enhanced for production security
         csp = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://js.stripe.com; "
-            "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://js.stripe.com https://vercel.live; "
+            "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com; "
             "img-src 'self' data: blob: https:; "
-            "font-src 'self' data:; "
-            "connect-src 'self' https://api.stripe.com; "
-            "frame-src https://js.stripe.com; "
-            "frame-ancestors 'none';"
+            "font-src 'self' data: https://fonts.gstatic.com; "
+            "connect-src 'self' https://api.stripe.com https://vercel.live wss://ws-*.pusher.com; "
+            "frame-src https://js.stripe.com https://vercel.live; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self';"
         )
         response.headers["Content-Security-Policy"] = csp
         

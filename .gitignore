@@ -13,11 +13,14 @@ careops-frontend/.pnpm-debug.log*
 careops-frontend/.vercel
 careops-frontend/dist/
 careops-frontend/build/
+.next/
 
 # Backend (Python/FastAPI)
 careops-backend/__pycache__/
-careops-backend/*.py[cod]
-careops-backend/*$py.class
+careops-backend/**/__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
 careops-backend/*.so
 careops-backend/.Python
 careops-backend/build/
@@ -98,6 +101,7 @@ Thumbs.db
 .cline_session/
 .cline_state
 .agent/
+.agents/
 .agents/session*
 .agents/logs/
 .qodo/
@@ -114,3 +118,4 @@ tmp/
 temp/
 *.bak
 *.backup
+node_modules/

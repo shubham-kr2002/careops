@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 from fastapi import Depends, HTTPException, status
@@ -38,9 +38,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode = data.copy()
     
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(hours=settings.JWT_EXPIRATION_HOURS)
+        expire = datetime.now(timezone.utc) + timedelta(hours=settings.JWT_EXPIRATION_HOURS)
     
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
@@ -48,9 +48,26 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
+def decode_access_token(token: str) -> Optional[dict]:
+    """
+    Decode and verify a JWT access token.
+    
+    Args:
+        token: JWT token string
+    
+    Returns:
+        Decoded token payload or None if invalid
+    """
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        return payload
+    except JWTError:
+        return None
+
+
 def verify_token(token: str) -> Optional[dict]:
     """
-    Verify and decode a JWT token.
+    Verify and decode a JWT token. Alias for decode_access_token.
     
     Args:
         token: JWT token string
@@ -58,11 +75,7 @@ def verify_token(token: str) -> Optional[dict]:
     Returns:
         Decoded token data or None if invalid
     """
-    try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        return payload
-    except JWTError:
-        return None
+    return decode_access_token(token)
 
 
 # HTTP Bearer token scheme

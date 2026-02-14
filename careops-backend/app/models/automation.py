@@ -3,7 +3,7 @@ Automation Models - Event System, Templates, and Logging
 """
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Integer, Index, Enum as SQLEnum, Boolean
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Integer, Index, Enum as SQLEnum, Boolean, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -59,8 +59,8 @@ class AutomationLog(Base):
     completed_at = Column(DateTime, nullable=True)
     duration_ms = Column(Integer, nullable=True)
 
-    # Metadata
-    metadata = Column(Text, nullable=True)  # JSON string for additional context
+    # Additional context
+    extra_metadata = Column("metadata", Text, nullable=True)  # JSON string for additional context
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -82,7 +82,7 @@ class EmailTemplate(Base):
 
     # Template details
     name = Column(String(255), nullable=False)
-    slug = Column(String(100), nullable=False, unique=True)  # welcome, booking_confirmation, booking_reminder, etc.
+    slug = Column(String(100), nullable=False)  # welcome, booking_confirmation, booking_reminder, etc.
 
     # Content
     subject = Column(String(500), nullable=False)
@@ -100,6 +100,7 @@ class EmailTemplate(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     __table_args__ = (
+        UniqueConstraint('workspace_id', 'slug', name='uq_email_templates_workspace_slug'),
         Index("ix_email_templates_workspace", "workspace_id"),
         Index("ix_email_templates_slug", "slug"),
     )

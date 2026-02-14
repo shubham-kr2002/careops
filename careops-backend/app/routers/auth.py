@@ -1,23 +1,39 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import re
 import secrets
 import hashlib
-import time
+import asyncio
+from typing import Dict
+from uuid import uuid4
 
 from app.database import get_db
 from app.schemas.auth import LoginRequest, UserCreate, UserResponse, Token
 from app.models.user import User, UserRole, StaffPermission
 from app.models.workspace import Workspace, WorkspaceStatus
-from app.core.security import verify_password, get_password_hash, create_access_token
+from app.core.security import verify_password, get_password_hash, create_access_token, decode_access_token
 from app.core.limiter import limiter
 from app.core.exceptions import AuthenticationError, ValidationError
 from app.core.dependencies import get_current_user
 from app.config import settings
 
+# Account lockout tracking (in-memory, use Redis in production)
+lockout_tracker: Dict[str, Dict] = {}
+
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+def generate_slug(name: str) -> str:
+    """Generate a URL-safe slug from a name."""
+    slug = name.lower().strip()
+    slug = re.sub(r'[^a-z0-9\s-]', '', slug)
+    slug = re.sub(r'[\s_]+', '-', slug)
+    slug = re.sub(r'-+', '-', slug).strip('-')
+    # Append short unique suffix to avoid collisions
+    slug = f"{slug}-{uuid4().hex[:6]}"
+    return slug
 
 
 def validate_password_strength(password: str) -> tuple[bool, str]:
@@ -73,8 +89,10 @@ async def register(request: Request, user_data: UserCreate, db: Session = Depend
     
     try:
         # Create workspace first
+        workspace_name = user_data.workspace_name or f"{user_data.name}'s Workspace"
         workspace = Workspace(
-            name=user_data.workspace_name or f"{user_data.name}'s Workspace",
+            name=workspace_name,
+            slug=generate_slug(workspace_name),
             contact_email=user_data.email,
             status=WorkspaceStatus.ACTIVE
         )
@@ -125,11 +143,28 @@ async def login(request: Request, login_data: LoginRequest, db: Session = Depend
     Authenticate user and return JWT token.
     Rate limited to 5 attempts per minute to prevent brute force.
     
-    Uses constant-time comparison to prevent timing attacks.
+    Security features:
+    - Constant-time comparison to prevent timing attacks
+    - Account lockout after 5 failed attempts (30 min)
+    - Random delay to prevent timing attacks
     """
+    email = login_data.email.lower().strip()
+    
+    # Check account lockout
+    if email in lockout_tracker:
+        lockout_info = lockout_tracker[email]
+        if lockout_info['attempts'] >= 5:
+            lockout_until = lockout_info['locked_until']
+            if datetime.now(timezone.utc) < lockout_until:
+                remaining = int((lockout_until - datetime.now(timezone.utc)).total_seconds())
+                raise AuthenticationError(f"Account locked. Try again in {remaining} seconds")
+            else:
+                # Lockout expired, reset
+                del lockout_tracker[email]
+    
     # Find user by email (case-insensitive)
     user = db.query(User).filter(
-        func.lower(User.email) == func.lower(login_data.email)
+        func.lower(User.email) == email
     ).first()
     
     # ALWAYS perform password verification to prevent timing attacks
@@ -142,9 +177,23 @@ async def login(request: Request, login_data: LoginRequest, db: Session = Depend
     
     # Check user exists and password is valid
     if not user or not password_valid:
+        # Track failed attempts
+        if email not in lockout_tracker:
+            lockout_tracker[email] = {'attempts': 0, 'locked_until': None}
+        
+        lockout_tracker[email]['attempts'] += 1
+        
+        if lockout_tracker[email]['attempts'] >= 5:
+            # Lock account for 30 minutes
+            lockout_tracker[email]['locked_until'] = datetime.now(timezone.utc) + timedelta(minutes=30)
+        
         # Add small random delay to further prevent timing attacks
-        time.sleep(secrets.randbelow(100) / 1000)  # 0-100ms random delay
+        await asyncio.sleep(secrets.randbelow(100) / 1000)  # 0-100ms random delay
         raise AuthenticationError("Invalid email or password")
+    
+    # Clear lockout on successful login
+    if email in lockout_tracker:
+        del lockout_tracker[email]
     
     # Check if user is active
     if not user.is_active:
@@ -155,7 +204,7 @@ async def login(request: Request, login_data: LoginRequest, db: Session = Depend
         raise AuthenticationError("Workspace is not active")
     
     # Update last login
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     
     # Create JWT token with workspace context
     token_data = {
@@ -171,7 +220,16 @@ async def login(request: Request, login_data: LoginRequest, db: Session = Depend
     return Token(
         access_token=access_token,
         token_type="bearer",
-        expires_in=settings.JWT_EXPIRATION_HOURS * 3600
+        expires_in=settings.JWT_EXPIRATION_HOURS * 3600,
+        user=UserResponse(
+            id=str(user.id),
+            email=user.email,
+            name=user.name,
+            role=user.role.value,
+            workspace_id=str(user.workspace_id) if user.workspace_id else None,
+            is_active=user.is_active,
+            created_at=user.created_at
+        )
     )
 
 
@@ -213,5 +271,38 @@ async def refresh_token(current_user: User = Depends(get_current_user)):
     return Token(
         access_token=access_token,
         token_type="bearer",
-        expires_in=settings.JWT_EXPIRATION_HOURS * 3600
+        expires_in=settings.JWT_EXPIRATION_HOURS * 3600,
+        user=UserResponse(
+            id=str(current_user.id),
+            email=current_user.email,
+            name=current_user.name,
+            role=current_user.role.value,
+            workspace_id=str(current_user.workspace_id) if current_user.workspace_id else None,
+            is_active=current_user.is_active,
+            created_at=current_user.created_at
+        )
     )
+
+
+@router.post("/verify")
+async def verify_token_endpoint(current_user: User = Depends(get_current_user)):
+    """
+    Verify JWT token validity and return user information.
+    Used by middleware for server-side authentication.
+    
+    Returns:
+        User information if token is valid
+        
+    Raises:
+        HTTPException: 401 if token is invalid or expired
+    """
+    return {
+        "valid": True,
+        "user": {
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "name": current_user.name,
+            "role": current_user.role.value,
+            "workspace_id": str(current_user.workspace_id) if current_user.workspace_id else None
+        }
+    }

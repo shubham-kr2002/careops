@@ -2,7 +2,7 @@
 # Multi-stage build for production optimization
 
 # Stage 1: Builder
-FROM python:3.11-slim as builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Production
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -36,11 +36,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Set Python environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 # Create non-root user for security
-RUN groupadd -r careops && useradd -r -g careops careops
+RUN groupadd -r careops && useradd -r -g careops -m careops
 
 # Copy application code
 COPY --chown=careops:careops . .
+
+# Ensure alembic can write migration stamps
+RUN chown -R careops:careops /app
 
 # Switch to non-root user
 USER careops

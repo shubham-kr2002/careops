@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
 // Helper to get auth token
 const getAuthHeader = (): Record<string, string> => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
@@ -57,7 +59,7 @@ export default function OnboardingPage() {
     if (!workspace.name || !workspace.contactEmail) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/workspaces", {
+      const res = await fetch(`${API_BASE_URL}/workspaces`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: JSON.stringify({
@@ -86,7 +88,7 @@ export default function OnboardingPage() {
     try {
       // Save integrations
       if (integrations.email) {
-        await fetch("/api/integrations", {
+        await fetch(`${API_BASE_URL}/integrations`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...getAuthHeader() },
           body: JSON.stringify({
@@ -110,7 +112,7 @@ export default function OnboardingPage() {
     try {
       for (const service of services) {
         if (service.name) {
-          await fetch("/api/bookings/types", {
+          await fetch(`${API_BASE_URL}/bookings/types`, {
             method: "POST",
             headers: { "Content-Type": "application/json", ...getAuthHeader() },
             body: JSON.stringify(service),

@@ -1,0 +1,17 @@
+# Frontend Dockerfile for CareOps - DEVELOPMENT MODE
+# Used by docker-compose.override.yml for hot-reload
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Copy source (overridden by volume mount in docker-compose.override)
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

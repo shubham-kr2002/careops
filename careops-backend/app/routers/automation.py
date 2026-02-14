@@ -17,7 +17,7 @@ from app.models.automation import (
 )
 from app.core.security import get_current_user, require_owner
 
-router = APIRouter(prefix="/api/automation", tags=["automation"])
+router = APIRouter(prefix="/api/v1/automation", tags=["automation"])
 
 
 # ==================== SCHEMAS ====================
@@ -135,8 +135,10 @@ class ScheduledTaskResponse(BaseModel):
 # ==================== HELPERS ====================
 
 def get_workspace(db: Session, current_user: User) -> Workspace:
-    """Get the current user's workspace."""
+    """Get the current user's workspace (supports both owner and staff)."""
     workspace = db.query(Workspace).filter(Workspace.owner_id == current_user.id).first()
+    if not workspace and current_user.workspace_id:
+        workspace = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     return workspace
@@ -164,7 +166,7 @@ def create_email_template(
 
     template = EmailTemplate(
         workspace_id=workspace.id,
-        **template_data.dict()
+        **template_data.model_dump()
     )
     db.add(template)
     db.commit()
@@ -242,7 +244,7 @@ def create_sms_template(
 
     template = SMSTemplate(
         workspace_id=workspace.id,
-        **template_data.dict()
+        **template_data.model_dump()
     )
     db.add(template)
     db.commit()
@@ -307,7 +309,7 @@ def create_automation_rule(
     rule = AutomationRule(
         workspace_id=workspace.id,
         event_type=event_type,
-        **rule_data.dict(exclude={"event_type"})
+        **rule_data.model_dump(exclude={"event_type"})
     )
     db.add(rule)
     db.commit()
@@ -360,7 +362,7 @@ def update_automation_rule(
         raise HTTPException(status_code=404, detail="Rule not found")
 
     # Update fields
-    for key, value in rule_data.dict(exclude_unset=True).items():
+    for key, value in rule_data.model_dump(exclude_unset=True).items():
         setattr(rule, key, value)
 
     db.commit()

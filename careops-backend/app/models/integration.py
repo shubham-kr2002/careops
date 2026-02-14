@@ -10,11 +10,14 @@ from app.database import Base
 
 class IntegrationType(str, enum.Enum):
     """Integration type enumeration."""
-    EMAIL = "email"
+    EMAIL_SENDGRID = "email_sendgrid"
+    EMAIL_GMAIL = "email_gmail"
     SMS = "sms"
     CALENDAR = "calendar"
     STORAGE = "storage"
     WEBHOOK = "webhook"
+    WHATSAPP = "whatsapp"
+    SLACK = "slack"
 
 
 class IntegrationStatus(str, enum.Enum):

@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { Package, Plus, Search, Filter, MoreVertical, AlertTriangle, TrendingUp, TrendingDown, Edit2, Trash2, X } from 'lucide-react'
 import { useInventoryItems, useLowStockItems, useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, useCreateInventoryTransaction, InventoryItem } from '@/lib/api'
+import { Button } from '@/components/ui/button'
 
 // Sample categories
 const categories = ['All', 'Supplies', 'Equipment', 'Parts', 'Consumables', 'Other']
@@ -69,7 +70,8 @@ export default function InventoryPage() {
   }
 
   const handleDeleteItem = async (itemId: string) => {
-    if (confirm('Are you sure you want to delete this item?')) {
+    const confirmed = typeof window !== 'undefined' && window.confirm('Are you sure you want to delete this item?')
+    if (confirmed) {
       await deleteItem.mutateAsync(itemId)
     }
   }
@@ -82,13 +84,13 @@ export default function InventoryPage() {
           <h1 className="text-2xl font-bold text-[var(--neutral-900)]">Inventory</h1>
           <p className="text-[var(--neutral-500)] mt-1">Manage your stock and supplies</p>
         </div>
-        <button 
+        <Button 
           onClick={() => setShowAddModal(true)}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--primary-600)] hover:bg-[var(--primary-700)] text-white font-medium rounded-lg transition-colors"
+          aria-label="Add inventory item"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-5 h-5" aria-hidden="true" />
           Add Item
-        </button>
+        </Button>
       </div>
 
       {/* Stats Cards */}

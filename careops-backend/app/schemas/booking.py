@@ -1,7 +1,7 @@
 """
 Booking Schemas - Pydantic models for booking API
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
@@ -11,9 +11,9 @@ from app.models.booking import BookingStatus
 
 class BookingTypeBase(BaseModel):
     """Base booking type schema."""
-    name: str
+    name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
-    duration: int  # in minutes
+    duration: int = Field(..., gt=0, le=480, description="Duration in minutes")
     location: Optional[str] = None
     is_virtual: bool = False
     price: Optional[str] = None
@@ -88,8 +88,8 @@ class BookingCreate(BookingBase):
 class BookingCreatePublic(BaseModel):
     """Schema for public booking (no contact_id required - creates contact if needed)."""
     booking_type_id: UUID
-    name: str
-    email: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=255)
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     scheduled_at: datetime
     location: Optional[str] = None

@@ -13,7 +13,7 @@ from app.models.workspace import Workspace
 from app.core.security import get_current_user, require_owner
 from app.core.security import get_password_hash
 
-router = APIRouter(prefix="/api/staff", tags=["staff"])
+router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 
 
 class StaffPermissionCreate(BaseModel):

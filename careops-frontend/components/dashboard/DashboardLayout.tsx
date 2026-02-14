@@ -9,7 +9,6 @@ import {
   MessageSquare,
   FileText,
   Package,
-  Users,
   Settings,
   Bell,
   Search,
@@ -17,7 +16,10 @@ import {
   X,
   ChevronDown,
   LogOut,
-  Zap
+  Zap,
+  BarChart3,
+  ClipboardList,
+  Wrench
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 
@@ -34,7 +36,9 @@ const navigation: NavItem[] = [
   { name: 'Inbox', href: '/dashboard/inbox', icon: MessageSquare, badge: 12 },
   { name: 'Forms', href: '/dashboard/forms', icon: FileText },
   { name: 'Inventory', href: '/dashboard/inventory', icon: Package },
-  { name: 'Leads', href: '/dashboard/leads', icon: Users },
+  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { name: 'Reports', href: '/dashboard/reports', icon: ClipboardList },
+  { name: 'Maintenance', href: '/dashboard/maintenance', icon: Wrench },
 ]
 
 const secondaryNavigation: NavItem[] = [
@@ -53,7 +57,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const handleLogout = () => {
     logout()
-    localStorage.removeItem('token')
     window.location.href = '/login'
   }
 
@@ -237,7 +240,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                         <p className="text-xs text-[var(--neutral-500)] truncate">{user?.email}</p>
                       </div>
                       <Link
-                        href="/dashboard/profile"
+                        href="/dashboard/settings/profile"
                         className="block px-4 py-2 text-sm text-[var(--neutral-600)] hover:bg-[var(--neutral-50)] hover:text-[var(--neutral-900)]"
                         onClick={() => setUserMenuOpen(false)}
                       >

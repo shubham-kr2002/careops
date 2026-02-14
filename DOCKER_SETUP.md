@@ -10,7 +10,39 @@ Complete containerized setup for CareOps with PostgreSQL, FastAPI backend, and N
 
 ## Quick Start
 
-### Windows
+### Option 1: Docker Compose (Recommended)
+
+```bash
+# Start all services (PostgreSQL + Backend + Frontend)
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
+```
+
+### Option 2: Local Development (Without Docker for app servers)
+
+```bash
+# 1. Start only PostgreSQL in Docker
+docker compose up -d db
+
+# 2. Setup backend
+cd careops-backend
+pip install -r requirements.txt
+python setup_db.py        # Create tables
+python seed_data.py       # Seed test data
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 3. In a new terminal - Start frontend
+cd careops-frontend
+npm install
+npm run dev
+```
+
+### Windows Batch Script
 ```bash
 start-careops.bat up
 ```
@@ -21,31 +53,27 @@ chmod +x start-careops.sh
 ./start-careops.sh up
 ```
 
-## Manual Docker Commands
+## Docker Commands Reference
 
-### Start All Services
 ```bash
-docker-compose up -d
-```
+# Start all services
+docker compose up -d
 
-### View Logs
-```bash
-docker-compose logs -f
-```
+# Start only database
+docker compose up -d db
 
-### Stop Services
-```bash
-docker-compose down
-```
+# View logs
+docker compose logs -f
+docker compose logs -f backend   # Backend only
 
-### Rebuild Containers
-```bash
-docker-compose build --no-cache
-```
+# Stop services
+docker compose down
 
-### Clean Everything (including data)
-```bash
-docker-compose down -v
+# Rebuild containers
+docker compose build --no-cache
+
+# Clean everything (including database data)
+docker compose down -v
 docker system prune -f
 ```
 
@@ -53,14 +81,14 @@ docker system prune -f
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| Frontend | http://localhost:3000 | Next.js 14 React Application |
+| Frontend | http://localhost:3000 | Next.js React Application |
 | Backend API | http://localhost:8000 | FastAPI Python Backend |
 | API Docs | http://localhost:8000/docs | Swagger/OpenAPI Documentation |
 | PostgreSQL | localhost:5432 | PostgreSQL 14 Database |
 
 ## Default Login Credentials
 
-After running `start-careops.bat up` or `./start-careops.sh up`, the database is automatically seeded with test users:
+After seeding, the following test users are available:
 
 | Role | Email | Password |
 |------|-------|----------|
@@ -84,20 +112,62 @@ After running `start-careops.bat up` or `./start-careops.sh up`, the database is
 
 ## Environment Variables
 
-### Backend (.env)
+### Backend (`careops-backend/.env`)
+
 ```env
-DATABASE_URL=postgresql://postgres:postgres@db:5432/careops
+# Required
 SECRET_KEY=your-secret-key
 JWT_SECRET_KEY=your-jwt-secret-key
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/careops
+
+# Application
 APP_ENV=development
 DEBUG=true
 FRONTEND_URL=http://localhost:3000
+
+# AI Features (optional)
+GROQ_API_KEY=your-groq-api-key
+
+# WhatsApp Integration (optional)
+WHATSAPP_API_URL=https://graph.facebook.com/v18.0
+WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_VERIFY_TOKEN=careops-webhook-verify-token
+
+# Slack Integration (optional)
+SLACK_CLIENT_ID=
+SLACK_CLIENT_SECRET=
+SLACK_SIGNING_SECRET=
+SLACK_BOT_TOKEN=
 ```
 
-### Frontend (docker-compose.yml)
+### Frontend (`careops-frontend/.env.local`)
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-API_URL=http://backend:8000/api/v1
+```
+
+## Database Setup
+
+### Initial Setup
+```bash
+# Create all tables from models
+python setup_db.py
+
+# Seed test data
+python seed_data.py
+```
+
+### Using Alembic Migrations
+```bash
+# Apply all migrations
+alembic upgrade head
+
+# Check current revision
+alembic current
+
+# Create new migration
+alembic revision --autogenerate -m "description"
 ```
 
 ## Volume Mounts
@@ -105,47 +175,53 @@ API_URL=http://backend:8000/api/v1
 | Volume | Container Path | Description |
 |--------|----------------|-------------|
 | postgres_data | /var/lib/postgresql/data | Database persistence |
-| ./careops-backend | /app | Backend source code |
-| ./careops-frontend | /app | Frontend source code |
+| ./careops-backend | /app | Backend source code (dev) |
+| ./careops-frontend | /app | Frontend source code (dev) |
 
 ## Health Checks
 
 All services include health checks:
 - **Database**: `pg_isready` check every 10s
-- **Backend**: HTTP health endpoint check every 30s
+- **Backend**: HTTP `/health` endpoint check every 30s
 - **Frontend**: HTTP check every 30s
-
-## Development Workflow
-
-1. **Start containers**: `./start-careops.sh up`
-2. **View logs**: `./start-careops.sh logs`
-3. **Make code changes** - volumes auto-sync
-4. **Restart if needed**: `./start-careops.sh restart`
-5. **Stop**: `./start-careops.sh down`
 
 ## Troubleshooting
 
 ### Port Already in Use
 ```bash
-# Find and kill process using port 3000 or 8000
+# Windows
 netstat -ano | findstr :3000
 taskkill /PID <PID> /F
+
+# Linux/Mac
+lsof -i :3000
+kill -9 <PID>
 ```
 
 ### Database Connection Issues
 ```bash
 # Reset database
-docker-compose down -v
-docker-compose up -d
+docker compose down -v
+docker compose up -d db
+
+# Recreate tables
+python setup_db.py
+python seed_data.py
+```
+
+### bcrypt/passlib Error
+```bash
+# Install compatible bcrypt version
+pip install bcrypt==4.0.1
 ```
 
 ### Container Won't Start
 ```bash
 # Check logs
-docker-compose logs <service-name>
+docker compose logs <service-name>
 
 # Rebuild
-docker-compose build --no-cache
+docker compose build --no-cache
 ```
 
 ### Permission Denied (Linux/Mac)
@@ -157,25 +233,21 @@ chmod +x start-careops.sh
 
 For production deployment:
 
-1. Update `docker-compose.yml` environment variables
-2. Use proper secrets management
-3. Enable SSL/TLS
-4. Configure backup strategy
-5. Set up monitoring and alerting
+1. Update environment variables with real secrets
+2. Set `APP_ENV=production` and `DEBUG=false`
+3. Use proper secrets management (e.g., Docker secrets, Vault)
+4. Enable SSL/TLS with a reverse proxy (nginx/traefik)
+5. Configure database backups
+6. Set up monitoring and alerting
+7. Add GROQ_API_KEY for AI features
 
 See `architecture.md` for production deployment details.
 
 ## Security Notes
 
-- Secrets are passed via environment variables
+- Secrets passed via environment variables (`.env` files)
 - Non-root users in containers
-- Health checks enabled
-- Volumes for data persistence
-- Network isolation
-
-## Support
-
-For issues or questions, refer to:
-- Backend: `careops-backend/README.md`
-- Frontend: `careops-frontend/README.md`
-- Architecture: `architecture.md`
+- Health checks enabled for all services
+- Named volumes for data persistence
+- Network isolation via Docker bridge network
+- CORS configured for frontend origin only
