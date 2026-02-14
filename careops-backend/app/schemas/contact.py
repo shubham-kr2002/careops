@@ -21,6 +21,14 @@ class ContactCreate(ContactBase):
     pass
 
 
+class ContactCreatePublic(BaseModel):
+    """Schema for public contact form (no login required)."""
+    name: str
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    message: Optional[str] = None
+
+
 class ContactUpdate(BaseModel):
     """Schema for updating a contact."""
     name: Optional[str] = None

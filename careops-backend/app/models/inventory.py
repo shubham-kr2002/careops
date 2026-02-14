@@ -43,7 +43,7 @@ class InventoryItem(Base):
     
     # Metadata
     unit = Column(String(50), nullable=True)  # e.g., "pieces", "liters", "hours"
-    metadata = Column(JSONB, nullable=True)
+    item_metadata = Column(JSONB, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

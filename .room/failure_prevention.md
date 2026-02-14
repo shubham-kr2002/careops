@@ -214,7 +214,7 @@ Using inversion thinking from `.clinerules`, here are the top 10 reasons you mig
 
 #### 1. Overly Complex Decision Making
 **AI Problem**: Analyzes sentiment, intent, and context before responding
-**CareOps Solution**: AI analyzes with fallback to direct, rule-based responses
+**CareOps Solution**: Groq Llama 3.2 analyzes with fallback to direct, rule-based responses (< 2 seconds)
 
 #### 2. Lack of Human Oversight
 **AI Problem**: Autonomous decisions without staff approval
@@ -222,15 +222,15 @@ Using inversion thinking from `.clinerules`, here are the top 10 reasons you mig
 
 #### 3. Poor Transparency
 **AI Problem**: Black box decision-making with no audit trail
-**CareOps Solution**: AI responses include confidence scores and explanations
+**CareOps Solution**: Groq Llama 3.2 responses include confidence scores and explanations with full audit trails
 
 #### 4. Inconsistent Communication
 **AI Problem**: Varies tone and content based on AI training
-**CareOps Solution**: AI generates responses from approved templates
+**CareOps Solution**: Groq Llama 3.2 generates responses from approved templates with consistent tone
 
 #### 5. Slow Response Times
 **AI Problem**: Takes 5-15 seconds to analyze and respond
-**CareOps Solution**: AI responses < 2 seconds, fallback to instant rule-based
+**CareOps Solution**: Groq Llama 3.2 responses < 2 seconds (Groq's ultra-fast inference), fallback to instant rule-based
 
 #### 6. Misunderstanding Context
 **AI Problem**: Struggles with nuanced or ambiguous inquiries
@@ -238,11 +238,11 @@ Using inversion thinking from `.clinerules`, here are the top 10 reasons you mig
 
 #### 7. High Maintenance Complexity
 **AI Problem**: Requires constant training and monitoring
-**CareOps Solution**: Pre-trained models with automated retraining
+**CareOps Solution**: Groq Llama 3.2 (pre-trained, hosted) with minimal maintenance and automated prompt optimization
 
 #### 8. Cost Overhead
 **AI Problem**: Expensive AI infrastructure and training data
-**CareOps Solution**: Optimized AI usage with < $0.50/month per user
+**CareOps Solution**: Groq API with ultra-low cost ($0.00001/token) achieving < $0.50/month per user
 
 #### 9. Security Risks
 **AI Problem**: Vulnerable to prompt injection and other attacks

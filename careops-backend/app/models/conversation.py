@@ -86,7 +86,7 @@ class Message(Base):
     
     # Provider metadata
     provider_message_id = Column(String(255), nullable=True)  # External provider ID
-    metadata = Column(Text, nullable=True)  # JSON string for additional data
+    msg_metadata = Column(Text, nullable=True)  # JSON string for additional data
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

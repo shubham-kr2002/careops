@@ -48,6 +48,21 @@ def create_contact(
     db.add(contact)
     db.commit()
     db.refresh(contact)
+    
+    # Trigger automation event for new contact
+    try:
+        from app.services.automation_service import AutomationService
+        automation_service = AutomationService(db)
+        # Run async function in sync context
+        import asyncio
+        asyncio.get_event_loop().run_until_complete(
+            automation_service.on_contact_created(contact)
+        )
+    except Exception as e:
+        # Log but don't fail the request
+        import logging
+        logging.getLogger(__name__).error(f"Automation trigger failed: {str(e)}")
+    
     return contact
 
 

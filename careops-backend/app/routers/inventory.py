@@ -19,6 +19,7 @@ from app.schemas.inventory import (
     InventoryTransactionCreate,
     InventoryTransactionResponse
 )
+from app.schemas.inventory import InventoryItemResponse as InventoryItemResponseSchema
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 
@@ -102,7 +103,12 @@ def get_inventory_item(
     
     if not item:
         raise HTTPException(status_code=404, detail="Inventory item not found")
-    return item
+    
+    # Add computed fields to response
+    response = InventoryItemResponse.model_validate(item)
+    response.available_quantity = item.available_quantity
+    response.is_low_stock = item.is_low_stock
+    return response
 
 
 @router.patch("/items/{item_id}", response_model=InventoryItemResponse)
@@ -158,6 +164,10 @@ def create_inventory_transaction(
 ):
     """Create an inventory transaction (purchase, use, adjustment)."""
     workspace = get_workspace(db, current_user)
+    
+    # Validate quantity is positive
+    if transaction_data.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be positive")
     
     # Verify item exists
     item = db.query(InventoryItem).filter(

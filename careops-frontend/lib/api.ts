@@ -108,3 +108,96 @@ export const useCreateContact = () => {
     }
   })
 }
+
+// Inventory endpoints
+export const getLowStockItems = async () => {
+  const token = localStorage.getItem('token')
+  const response = await fetch(`${API_BASE_URL}/inventory/items/low-stock`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  return response.json()
+}
+
+export const useLowStockItems = () => {
+  return useQuery({
+    queryKey: ['inventory', 'low-stock'],
+    queryFn: getLowStockItems
+  })
+}
+
+// Conversation/Message endpoints
+export const getConversations = async () => {
+  const token = localStorage.getItem('token')
+  const response = await fetch(`${API_BASE_URL}/conversations`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  return response.json()
+}
+
+export const getConversationMessages = async (conversationId: string) => {
+  const token = localStorage.getItem('token')
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  return response.json()
+}
+
+export const sendMessage = async (conversationId: string, content: string) => {
+  const token = localStorage.getItem('token')
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ content })
+  })
+  return response.json()
+}
+
+// Pause automation when staff replies
+export const pauseAutomation = async (conversationId: string) => {
+  const token = localStorage.getItem('token')
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/pause-automation`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  return response.json()
+}
+
+export const resumeAutomation = async (conversationId: string) => {
+  const token = localStorage.getItem('token')
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/resume-automation`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  return response.json()
+}
+
+export const useConversations = () => {
+  return useQuery({
+    queryKey: ['conversations'],
+    queryFn: getConversations
+  })
+}
+
+export const useConversationMessages = (conversationId: string) => {
+  return useQuery({
+    queryKey: ['conversations', conversationId, 'messages'],
+    queryFn: () => getConversationMessages(conversationId),
+    enabled: !!conversationId
+  })
+}
+
+export const useSendMessage = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ conversationId, content }: { conversationId: string; content: string }) => 
+      sendMessage(conversationId, content),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['conversations', variables.conversationId, 'messages'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    }
+  })
+}

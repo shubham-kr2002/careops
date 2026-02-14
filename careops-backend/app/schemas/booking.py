@@ -85,6 +85,19 @@ class BookingCreate(BookingBase):
     pass
 
 
+class BookingCreatePublic(BaseModel):
+    """Schema for public booking (no contact_id required - creates contact if needed)."""
+    booking_type_id: UUID
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    scheduled_at: datetime
+    location: Optional[str] = None
+    is_virtual: bool = False
+    meeting_link: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class BookingResponse(BookingBase):
     """Schema for booking response."""
     id: UUID

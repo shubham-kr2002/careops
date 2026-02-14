@@ -196,6 +196,19 @@ def create_booking(
     db.add(booking)
     db.commit()
     db.refresh(booking)
+    
+    # Trigger automation event for new booking
+    try:
+        from app.services.automation_service import AutomationService
+        automation_service = AutomationService(db)
+        import asyncio
+        asyncio.get_event_loop().run_until_complete(
+            automation_service.on_booking_created(booking)
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Automation trigger failed: {str(e)}")
+    
     return booking
 
 

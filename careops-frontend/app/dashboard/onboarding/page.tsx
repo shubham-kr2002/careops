@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Helper to get auth token
+const getAuthHeader = () => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 type OnboardingStep = "workspace" | "integrations" | "services" | "complete";
 
 interface WorkspaceData {
@@ -30,6 +36,7 @@ interface ServiceData {
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<OnboardingStep>("workspace");
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [workspace, setWorkspace] = useState<WorkspaceData>({
     name: "",
@@ -52,26 +59,36 @@ export default function OnboardingPage() {
     try {
       const res = await fetch("/api/workspaces", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(workspace),
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({
+          name: workspace.name,
+          address: workspace.address,
+          timezone: workspace.timezone,
+          contact_email: workspace.contactEmail,
+        }),
       });
       if (res.ok) {
         setStep("integrations");
+      } else {
+        const data = await res.json();
+        setError(data.detail || "Failed to create workspace");
       }
     } catch (error) {
       console.error(error);
+      setError("Network error");
     }
     setLoading(false);
   };
 
   const handleIntegrationsSubmit = async () => {
     setLoading(true);
+    setError(null);
     try {
       // Save integrations
       if (integrations.email) {
         await fetch("/api/integrations", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...getAuthHeader() },
           body: JSON.stringify({
             type: "email",
             name: "Email",
@@ -82,18 +99,20 @@ export default function OnboardingPage() {
       setStep("services");
     } catch (error) {
       console.error(error);
+      setError("Failed to save integrations");
     }
     setLoading(false);
   };
 
   const handleServicesSubmit = async () => {
     setLoading(true);
+    setError(null);
     try {
       for (const service of services) {
         if (service.name) {
           await fetch("/api/bookings/types", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...getAuthHeader() },
             body: JSON.stringify(service),
           });
         }
@@ -101,6 +120,7 @@ export default function OnboardingPage() {
       setStep("complete");
     } catch (error) {
       console.error(error);
+      setError("Failed to save services");
     }
     setLoading(false);
   };
@@ -141,6 +161,11 @@ export default function OnboardingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+              {error}
+            </div>
+          )}
           {step === "workspace" && (
             <div className="space-y-4">
               <div>

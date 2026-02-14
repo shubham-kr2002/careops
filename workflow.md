@@ -559,7 +559,7 @@ flowchart TD
 **Key Metrics**:
 - API response time: < 200ms
 - Database query time: < 100ms
-- AI response time: < 2 seconds
+- Groq Llama 3.2 response time: < 2 seconds (ultra-fast inference)
 - Error rates: < 0.1%
 - CPU usage: < 80%
 - Memory usage: < 90%
@@ -568,7 +568,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[AI Service] --> Collect[Collect AI Metrics]
+    Start[Groq Llama 3.2 Service] --> Collect[Collect AI Metrics]
     Collect --> Analyze[Analyze Performance]
     Analyze --> Check{Threshold Exceeded?}
     
@@ -605,10 +605,10 @@ flowchart TD
 ```
 
 **AI Performance Targets**:
-- Response time: < 2 seconds
+- Response time: < 2 seconds (Groq's ultra-fast inference)
 - Confidence scores: > 0.75
 - Fallback rate: < 10%
-- Cost per request: < $0.0001
+- Cost per request: < $0.00001 (Groq's ultra-low pricing)
 - Accuracy: > 90%
 
 ### 3. Failure Detection & Recovery
@@ -692,16 +692,16 @@ flowchart TD
     style Recover fill:#10B981,stroke:#333,stroke-width:2px,color:#fff
 ```
 
-## 🚀 AI Agentic Workflows (Reliable Implementation)
+## 🚀 AI Agentic Workflows (Reliable Implementation with Groq Llama 3.2)
 
-### 1. AI-Powered Customer Inquiry Handling
+### 1. AI-Powered Customer Inquiry Handling (Groq Llama 3.2)
 
 ```mermaid
 flowchart TD
-    Start[Customer Sends Inquiry] --> AIProcess[AI Service Layer]
-    AIProcess --> Intent[Intent Recognition]
-    Intent --> Sentiment[Sentiment Analysis]
-    Sentiment --> Response[Response Generation]
+    Start[Customer Sends Inquiry] --> AIProcess[Groq Llama 3.2 Service Layer]
+    AIProcess --> Intent[Intent Recognition via Groq]
+    Intent --> Sentiment[Sentiment Analysis via Groq]
+    Sentiment --> Response[Response Generation via Groq]
     Response --> Confidence[Check Confidence]
     
     Confidence -->|> 0.75| Send[Send AI Response]
@@ -725,18 +725,19 @@ flowchart TD
 ```
 
 **Key Features**:
-- AI analyzes inquiry intent and sentiment
-- Response generation with context awareness
+- Groq Llama 3.2 analyzes inquiry intent and sentiment with ultra-fast inference
+- Response generation with context awareness using Groq API
 - Confidence threshold check (0.75 minimum)
 - Rule-based fallback for low confidence responses
 - Human approval required for high-risk inquiries
+- Cost-effective: < $0.00001 per request with Groq
 
-### 2. AI-Driven Demand Forecasting
+### 2. AI-Driven Demand Forecasting (Groq Llama 3.2)
 
 ```mermaid
 flowchart TD
-    Start[Historical Data Collection] --> AIProcess[AI Service Layer]
-    AIProcess --> Model[Time-Series Forecasting]
+    Start[Historical Data Collection] --> AIProcess[Groq Llama 3.2 Service Layer]
+    AIProcess --> Model[Time-Series Forecasting via Groq]
     Model --> Forecast[Generate Demand Forecast]
     Forecast --> Confidence[Check Confidence]
     
@@ -758,19 +759,20 @@ flowchart TD
 ```
 
 **Key Features**:
-- AI analyzes historical booking data
-- Generates 7-day demand forecast
+- Groq Llama 3.2 analyzes historical booking data with pattern recognition
+- Generates 7-day demand forecast using Groq's fast inference
 - Confidence threshold check (0.8 minimum)
 - Rule-based fallback for low confidence forecasts
 - Automatically triggers inventory alerts
+- Ultra-low cost forecasting with Groq API
 
-### 3. AI-Powered Inventory Optimization
+### 3. AI-Powered Inventory Optimization (Groq Llama 3.2)
 
 ```mermaid
 flowchart TD
-    Start[Inventory Data Collection] --> AIProcess[AI Service Layer]
-    AIProcess --> Usage[Usage Pattern Analysis]
-    Usage --> Prediction[Inventory Needs Prediction]
+    Start[Inventory Data Collection] --> AIProcess[Groq Llama 3.2 Service Layer]
+    AIProcess --> Usage[Usage Pattern Analysis via Groq]
+    Usage --> Prediction[Inventory Needs Prediction via Groq]
     Prediction --> Threshold[Check Threshold]
     
     Threshold -->|Below Threshold| Alert[Send Inventory Alert]
@@ -790,19 +792,20 @@ flowchart TD
 ```
 
 **Key Features**:
-- AI analyzes inventory usage patterns
-- Predicts future inventory needs
+- Groq Llama 3.2 analyzes inventory usage patterns with machine learning
+- Predicts future inventory needs using AI forecasting
 - Checks against configured thresholds
 - Sends alerts for low inventory items
 - Dashboard updates in real-time
+- Cost-effective AI analysis with Groq's low pricing
 
-### 4. AI-Driven Staff Routing
+### 4. AI-Driven Staff Routing (Groq Llama 3.2)
 
 ```mermaid
 flowchart TD
-    Start[New Inquiry Received] --> AIProcess[AI Service Layer]
-    AIProcess --> Intent[Intent Recognition]
-    Intent --> Skill[Skill Matching]
+    Start[New Inquiry Received] --> AIProcess[Groq Llama 3.2 Service Layer]
+    AIProcess --> Intent[Intent Recognition via Groq]
+    Intent --> Skill[Skill Matching via Groq Semantic Understanding]
     Skill --> Availability[Check Staff Availability]
     
     Availability -->|Available| Route[Route to Staff]
@@ -823,11 +826,12 @@ flowchart TD
 ```
 
 **Key Features**:
-- AI identifies inquiry intent
-- Matches with staff skills and availability
-- Routes inquiries to appropriate staff
+- Groq Llama 3.2 identifies inquiry intent with high accuracy
+- Matches with staff skills and availability using semantic understanding
+- Routes inquiries to appropriate staff intelligently
 - Adds to queue if no staff available
 - Escalates to owner if queue exceeds threshold
+- Ultra-fast routing decisions with Groq's low latency
 
 ---
 

@@ -538,36 +538,42 @@ class NotificationService:
     def send_booking_reminder(booking: Booking)
     def send_form_reminder(booking_form: BookingForm)
 
-#### 5. AI Service Layer
+#### 5. AI Service Layer (Groq Llama 3.2)
 ```python
 class AIService:
     def __init__(self):
-        # Load pre-trained models with fallback to rule-based system
-        self.models = {
-            'intent_recognition': IntentRecognitionModel(),
-            'sentiment_analysis': SentimentAnalysisModel(),
-            'response_generation': ResponseGenerationModel()
-        }
+        # Groq Llama 3.2 API integration with fallback to rule-based system
+        self.groq_client = GroqClient(api_key=os.getenv('GROQ_API_KEY'))
+        self.model = "llama-3.2-90b-text-preview"  # Groq Llama 3.2
         self.fallback = RuleBasedSystem()
     
     def process_inquiry(self, inquiry: str, context: dict = None) -> dict:
-        """Process customer inquiry with AI, fallback to rules if needed"""
+        """Process customer inquiry with Groq Llama 3.2, fallback to rules if needed"""
         try:
-            # Intent recognition
-            intent = self.models['intent_recognition'].predict(inquiry)
+            # Groq Llama 3.2 API call for intent recognition and sentiment
+            prompt = f"""Analyze this customer inquiry:
+Inquiry: {inquiry}
+Context: {context}
+
+Provide:
+1. Intent (booking, question, complaint, etc.)
+2. Sentiment (positive, neutral, negative)
+3. Confidence score (0-1)
+4. Suggested response
+
+Format as JSON."""
             
-            # Sentiment analysis
-            sentiment = self.models['sentiment_analysis'].predict(inquiry)
-            
-            # Response generation with context
-            response = self.models['response_generation'].generate(
-                intent=intent,
-                sentiment=sentiment,
-                context=context
+            response = self.groq_client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=500
             )
             
+            result = json.loads(response.choices[0].message.content)
+            
             return {
-                'intent': intent,
+                'intent': result['intent'],
                 'sentiment': sentiment,
                 'response': response,
                 'method': 'ai',
@@ -1678,39 +1684,45 @@ By following this architecture with failure prevention built-in, you minimize th
 9. Ensuring secure authentication
 10. Optimizing performance
 
-## 🤖 Reliable Agentic AI Architecture
+## 🤖 Reliable Agentic AI Architecture (Groq Llama 3.2)
 
-### 11. AI Service Layer Integration
+### 11. AI Service Layer Integration (Groq Llama 3.2)
 ```python
-# AI Service Layer for reliable agentic capabilities
+# AI Service Layer with Groq Llama 3.2 for reliable agentic capabilities
 class AIService:
     def __init__(self):
-        # Load pre-trained models with fallback to rule-based system
-        self.models = {
-            'intent_recognition': IntentRecognitionModel(),
-            'sentiment_analysis': SentimentAnalysisModel(),
-            'response_generation': ResponseGenerationModel()
-        }
+        # Groq Llama 3.2 API integration with fallback to rule-based system
+        self.groq_client = GroqClient(api_key=os.getenv('GROQ_API_KEY'))
+        self.model = "llama-3.2-90b-text-preview"  # Groq Llama 3.2 (ultra-fast)
         self.fallback = RuleBasedSystem()
     
     def process_inquiry(self, inquiry: str, context: dict = None) -> dict:
-        """Process customer inquiry with AI, fallback to rules if needed"""
+        """Process customer inquiry with Groq Llama 3.2, fallback to rules if needed"""
         try:
-            # Intent recognition
-            intent = self.models['intent_recognition'].predict(inquiry)
+            # Groq Llama 3.2 API call for intent recognition and sentiment
+            prompt = f"""Analyze this customer inquiry:
+Inquiry: {inquiry}
+Context: {context}
+
+Provide:
+1. Intent (booking, question, complaint, etc.)
+2. Sentiment (positive, neutral, negative)
+3. Confidence score (0-1)
+4. Suggested response
+
+Format as JSON."""
             
-            # Sentiment analysis
-            sentiment = self.models['sentiment_analysis'].predict(inquiry)
-            
-            # Response generation with context
-            response = self.models['response_generation'].generate(
-                intent=intent,
-                sentiment=sentiment,
-                context=context
+            response = self.groq_client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=500
             )
             
+            result = json.loads(response.choices[0].message.content)
+            
             return {
-                'intent': intent,
+                'intent': result['intent'],
                 'sentiment': sentiment,
                 'response': response,
                 'method': 'ai',

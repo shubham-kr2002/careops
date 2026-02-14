@@ -9,10 +9,10 @@ from app.core.limiter import limiter
 from app.core.logging import logger
 from app.database import engine, Base
 from app.routers import auth
-from app.routers import workspaces, integrations, contacts, bookings, forms, inventory
+from app.routers import workspaces, integrations, contacts, bookings, forms, inventory, conversations, public, staff, automation
 
-# Create database tables (for development only - use Alembic in production)
-# Base.metadata.create_all(bind=engine)
+# Create database tables (for development)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -47,6 +47,10 @@ app.include_router(contacts.router)
 app.include_router(bookings.router)
 app.include_router(forms.router)
 app.include_router(inventory.router)
+app.include_router(conversations.router)
+app.include_router(public.router)
+app.include_router(staff.router)
+app.include_router(automation.router)
 
 
 @app.get("/")

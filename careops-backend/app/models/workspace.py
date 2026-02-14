@@ -1,10 +1,18 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+import enum
 
 from app.database import Base
+
+
+class WorkspaceStatus(str, enum.Enum):
+    """Workspace status enumeration."""
+    PENDING = "pending"
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
 
 
 class Workspace(Base):

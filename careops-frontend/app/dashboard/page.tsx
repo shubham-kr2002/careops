@@ -3,6 +3,8 @@
 import React from 'react'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
+import { InventoryAlertsWidget } from '@/components/dashboard/InventoryAlertsWidget'
+import { AlertsPanel } from '@/components/dashboard/AlertsPanel'
 import {
   Calendar,
   MessageSquare,
@@ -239,6 +241,12 @@ export default function DashboardPage() {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* Inventory Alerts & Alerts Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <InventoryAlertsWidget />
+        <AlertsPanel />
       </div>
     </DashboardLayout>
   )

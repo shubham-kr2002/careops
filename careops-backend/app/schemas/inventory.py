@@ -48,6 +48,9 @@ class InventoryItemResponse(InventoryItemBase):
     reserved_quantity: Decimal
     created_at: datetime
     updated_at: datetime
+    # Computed fields
+    available_quantity: float = 0
+    is_low_stock: bool = False
 
     class Config:
         from_attributes = True
