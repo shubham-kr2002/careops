@@ -1294,9 +1294,15 @@ JWT_SECRET_KEY=your-jwt-secret
 JWT_ALGORITHM=HS256
 JWT_EXPIRATION_HOURS=24
 
-# Email (SendGrid)
+# Email (SendGrid or Gmail API)
 SENDGRID_API_KEY=SG.xxx
 SENDGRID_FROM_EMAIL=noreply@careops.io
+
+# Gmail API (alternative to SendGrid)
+GMAIL_CLIENT_ID=xxx
+GMAIL_CLIENT_SECRET=xxx
+GMAIL_REDIRECT_URI=http://localhost:8000/api/v1/integrations/gmail/callback
+GMAIL_EMAIL=your-email@gmail.com
 
 # SMS (Twilio)
 TWILIO_ACCOUNT_SID=ACxxx
@@ -1929,3 +1935,426 @@ This architecture creates a **reliable agentic AI system** that retains CareOps'
 - **Continuous Learning**: Improve from user interactions
 
 This architecture provides a solid foundation for a reliable agentic AI system that will compete effectively in the hackathon by combining intelligence with the proven reliability of CareOps.
+
+---
+
+## 🐳 Docker & DevOps Architecture
+
+### Docker Compose Setup
+
+CareOps uses Docker Compose for local development and testing:
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: careops-db
+    environment:
+      POSTGRES_DB: careops
+      POSTGRES_USER: careops_user
+      POSTGRES_PASSWORD: careops_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U careops_user -d careops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build: ./careops-backend
+    container_name: careops-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://careops_user:careops_password@postgres:5432/careops
+      JWT_SECRET_KEY: dev-secret-key
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./careops-backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend
+  frontend:
+    build: ./careops-frontend
+    container_name: careops-web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    volumes:
+      - ./careops-frontend:/app
+      - /app/node_modules
+    command: npm run dev
+
+volumes:
+  postgres_data:
+```
+
+### Dockerfile - Backend
+
+```dockerfile
+# careops-backend/Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Expose port
+EXPOSE 8000
+
+# Run the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Dockerfile - Frontend
+
+```dockerfile
+# careops-frontend/Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy application code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Expose port
+EXPOSE 3000
+
+# Start the application
+CMD ["npm", "start"]
+```
+
+### CI/CD Pipeline (GitHub Actions)
+
+```yaml
+# .github/workflows/ci-cd.yml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install backend dependencies
+        working-directory: careops-backend
+        run: pip install -r requirements.txt
+      
+      - name: Install frontend dependencies
+        working-directory: careops-frontend
+        run: npm ci
+      
+      - name: Run backend tests
+        working-directory: careops-backend
+        run: pytest
+      
+      - name: Run frontend tests
+        working-directory: careops-frontend
+        run: npm test
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Build and push backend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./careops-backend
+          push: true
+          tags: careops/backend:latest
+      
+      - name: Build and push frontend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./careops-frontend
+          push: true
+          tags: careops/frontend:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production..."
+          # Add deployment commands for your platform
+```
+
+### Kubernetes Deployment (Production)
+
+```yaml
+# k8s/backend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: careops-backend
+  labels:
+    app: careops-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: careops-backend
+  template:
+    metadata:
+      labels:
+        app: careops-backend
+    spec:
+      containers:
+      - name: backend
+        image: careops/backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: careops-secrets
+              key: database-url
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: careops-secrets
+              key: jwt-secret
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: careops-backend
+spec:
+  selector:
+    app: careops-backend
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: ClusterIP
+```
+
+### Environment-Specific Configurations
+
+```yaml
+# docker-compose.prod.yml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: careops_prod
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    command: postgres -c max_connections=200
+
+  backend:
+    build:
+      context: ./careops-backend
+      dockerfile: Dockerfile.prod
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+
+  frontend:
+    build:
+      context: ./careops-frontend
+      dockerfile: Dockerfile.prod
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_URL}
+    restart: always
+
+volumes:
+  postgres_prod_data:
+```
+
+### Health Check Endpoints
+
+The backend provides health check endpoints for orchestration:
+
+```python
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "version": "1.0.0"}
+
+# Readiness check (includes database)
+@app.get("/ready")
+async def readiness_check():
+    # Check database connection
+    try:
+        session.execute(text("SELECT 1"))
+        db_status = "ready"
+    except Exception:
+        db_status = "not ready"
+    
+    return {
+        "status": "ready" if db_status == "ready" else "not ready",
+        "database": db_status
+    }
+```
+
+### Monitoring with Docker
+
+```yaml
+# docker-compose.monitoring.yml
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+
+volumes:
+  grafana_data:
+```
+
+### DevOps Best Practices Implemented
+
+1. **Containerization**: All services run in isolated Docker containers
+2. **Health Checks**: Automatic health monitoring for all services
+3. **Resource Limits**: CPU and memory limits prevent resource exhaustion
+4. **Secrets Management**: Environment variables for sensitive data
+5. **CI/CD Automation**: GitHub Actions for automated testing and deployment
+6. **Logging**: Centralized logging with structured JSON format
+7. **Monitoring**: Prometheus metrics and Grafana dashboards
+8. **Rolling Deployments**: Zero-downtime deployments with Kubernetes
+
+### Quick Start with Docker
+
+```bash
+# Development
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Production build
+docker-compose -f docker-compose.prod.yml build
+
+# Production run
+docker-compose -f docker-compose.prod.yml up -d
+```

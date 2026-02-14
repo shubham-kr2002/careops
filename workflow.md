@@ -1303,3 +1303,218 @@ flowchart TD
 ---
 
 This document provides a comprehensive view of all business workflows within CareOps. Each workflow is designed to be clear, efficient, and focused on addressing the core pain points of service businesses - scattered tools, information silos, and lack of real-time visibility. By analyzing and preventing these failure scenarios, you minimize the risk of failing to win the hackathon.
+
+---
+
+## 🐳 DevOps Workflows
+
+### 1. Development Environment Setup
+
+```mermaid
+flowchart TD
+    Start[Developer Clone Repo] --> Docker[Install Docker]
+    Docker --> Compose[Run docker-compose up]
+    Compose --> DB[Database Ready]
+    DB --> Backend[Backend Running on :8000]
+    Backend --> Frontend[Frontend Running on :3000]
+    
+    style Start fill:#0EA5E9,stroke:#333,stroke-width:2px,color:#fff
+    style Docker fill:#0EA5E9,stroke:#333,stroke-width:2px,color:#fff
+    style Compose fill:#10B981,stroke:#333,stroke-width:2px,color:#fff
+```
+
+**Quick Start Commands:**
+```bash
+# Clone and start
+git clone https://github.com/shubham-kr2002/careops.git
+cd careops
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### 2. CI/CD Pipeline
+
+```mermaid
+flowchart TD
+    Push[Push to Main] --> Test[Run Tests]
+    Test --> Build[Build Docker Images]
+    Build --> PushRegistry[Push to Registry]
+    PushRegistry --> Deploy[Deploy to Production]
+    
+    style Push fill:#0EA5E9,stroke:#333,stroke-width:2px
+    style Test fill:#6366F1,stroke:#333,stroke-width:2px,color:#fff
+    style Build fill:#F59E0B,stroke:#333,stroke-width:2px
+    style PushRegistry fill:#10B981,stroke:#333,stroke-width:2px
+    style Deploy fill:#EF4444,stroke:#333,stroke-width:2px,color:#fff
+```
+
+**GitHub Actions Pipeline:**
+1. **Test Stage**: Runs pytest + npm test
+2. **Build Stage**: Builds Docker images
+3. **Push Stage**: Pushes to Docker Hub
+4. **Deploy Stage**: Deploys to Railway/Vercel
+
+### 3. Docker Development Workflow
+
+```bash
+# Development with hot reload
+docker-compose up -d
+
+# Scale services for load testing
+docker-compose up -d --scale backend=3
+
+# View service logs
+docker-compose logs -f backend
+
+# Run tests in container
+docker-compose exec backend pytest
+
+# Access database
+docker-compose exec postgres psql -U careops_user -d careops
+```
+
+### 4. Production Deployment Workflow
+
+```mermaid
+flowchart TD
+    Build[Build Images] --> Test[Smoke Tests]
+    Test --> Staging[Deploy to Staging]
+    Staging --> Verify[Verify Staging]
+    Verify --> Prod[Deploy to Production]
+    Prod --> Monitor[Monitor Health]
+    
+    style Build fill:#0EA5E9,stroke:#333,stroke-width:2px
+    style Test fill:#6366F1,stroke:#333,stroke-width:2px,color:#fff
+    style Staging fill:#F59E0B,stroke:#333,stroke-width:2px
+    style Verify fill:#10B981,stroke:#333,stroke-width:2px
+    style Prod fill:#EF4444,stroke:#333,stroke-width:2px,color:#fff
+    style Monitor fill:#10B981,stroke:#333,stroke-width:2px
+```
+
+**Production Commands:**
+```bash
+# Build production images
+docker-compose -f docker-compose.prod.yml build
+
+# Deploy to production
+docker-compose -f docker-compose.prod.yml up -d
+
+# Scale backend
+docker-compose -f docker-compose.prod.yml up -d --scale backend=3
+```
+
+### 5. Database Migration Workflow
+
+```bash
+# Create new migration
+docker-compose exec backend alembic revision --autogenerate -m "add new field"
+
+# Run migrations
+docker-compose exec backend alembic upgrade head
+
+# Rollback
+docker-compose exec backend alembic downgrade -1
+```
+
+### 6. Monitoring & Alerting Workflow
+
+```mermaid
+flowchart TD
+    Metrics[Collect Metrics] --> Prometheus[Prometheus]
+    Prometheus --> Grafana[Grafana Dashboard]
+    Alert[Alert Triggered] --> PagerDuty[PagerDuty]
+    PagerDuty --> OnCall[On-Call Engineer]
+    OnCall --> Investigate[Investigate]
+    Investigate --> Fix[Apply Fix]
+    
+    style Metrics fill:#0EA5E9,stroke:#333,stroke-width:2px
+    style Prometheus fill:#6366F1,stroke:#333,stroke-width:2px,color:#fff
+    style Grafana fill:#10B981,stroke:#333,stroke-width:2px
+    style Alert fill:#EF4444,stroke:#333,stroke-width:2px,color:#fff
+    style OnCall fill:#F59E0B,stroke:#333,stroke-width:2px
+```
+
+**Key Metrics to Monitor:**
+- API response time: < 200ms
+- Error rate: < 0.1%
+- CPU usage: < 80%
+- Memory usage: < 90%
+- Database connections: < 80% max
+
+### 7. Backup & Recovery Workflow
+
+```bash
+# Manual backup
+docker-compose exec postgres pg_dump -U careops_user careops > backup.sql
+
+# Restore from backup
+docker-compose exec -T postgres psql -U careops_user careops < backup.sql
+
+# Automated daily backup (cron)
+0 2 * * * docker-compose exec postgres pg_dump -U careops_user careops | gzip > /backups/$(date +\%Y\%m\%d).sql.gz
+```
+
+### 8. Security & Compliance
+
+```mermaid
+flowchart TD
+    Scan[Security Scan] --> Vulnerabilities{Found Issues?}
+    Vulnerabilities -->|Yes| Fix[Apply Fix]
+    Vulnerabilities -->|No| Pass[Pass Check]
+    Fix --> ReScan[Re-scan]
+    ReScan --> Vulnerabilities
+    
+    style Scan fill:#0EA5E9,stroke:#333,stroke-width:2px
+    style Vulnerabilities fill:#F59E0B,stroke:#333,stroke-width:2px
+    style Fix fill:#EF4444,stroke:#333,stroke-width:2px,color:#fff
+    style Pass fill:#10B981,stroke:#333,stroke-width:2px
+```
+
+**Security Tools:**
+- Docker Scout for vulnerability scanning
+- Snyk for dependency scanning
+- OWASP ZAP for API security testing
+
+### 9. Kubernetes Deployment (Optional)
+
+For production at scale, deploy to Kubernetes:
+
+```bash
+# Apply Kubernetes manifests
+kubectl apply -f k8s/
+
+# Check deployment status
+kubectl rollout status deployment/careops-backend
+
+# Scale deployment
+kubectl scale deployment careops-backend --replicas=5
+
+# View logs
+kubectl logs -f deployment/careops-backend
+```
+
+### 10. DevOps Checklist
+
+**Pre-Deployment:**
+- [ ] All tests passing
+- [ ] Docker images built successfully
+- [ ] Database migrations ready
+- [ ] Environment variables configured
+- [ ] Health checks passing
+
+**Post-Deployment:**
+- [ ] Verify services are healthy
+- [ ] Check error rates
+- [ ] Verify dashboard loads
+- [ ] Test critical user flows
+- [ ] Monitor for 30 minutes
+
+**Rollback Plan:**
+- [ ] Previous Docker image tagged
+- [ ] Database rollback script ready
+- [ ] Rollback command tested

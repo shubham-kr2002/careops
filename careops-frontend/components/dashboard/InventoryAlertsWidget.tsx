@@ -3,20 +3,12 @@
 import React from 'react'
 import Link from 'next/link'
 import { Package, AlertTriangle, ArrowUpRight, RefreshCw } from 'lucide-react'
-import { useLowStockItems } from '@/lib/api'
-
-interface InventoryAlert {
-  id: string
-  name: string
-  available_quantity: number
-  min_threshold: number
-  unit?: string
-}
+import { useLowStockItems, InventoryItem } from '@/lib/api'
 
 export function InventoryAlertsWidget() {
   const { data: lowStockItems, isLoading, error, refetch } = useLowStockItems()
 
-  const items: InventoryAlert[] = Array.isArray(lowStockItems) ? lowStockItems : []
+  const items: InventoryItem[] = Array.isArray(lowStockItems) ? lowStockItems : []
 
   return (
     <div className="bg-white rounded-xl border border-[var(--neutral-200)]">
@@ -61,9 +53,9 @@ export function InventoryAlertsWidget() {
             </div>
             <p className="text-sm text-[var(--neutral-600)]">All items in stock</p>
           </div>
-        ) : (
+          ) : (
           <div className="space-y-3">
-            {items.slice(0, 5).map((item) => (
+            {items.slice(0, 5).map((item) => item.min_threshold !== null && (
               <div
                 key={item.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-100"

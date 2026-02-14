@@ -7,9 +7,10 @@ from app.config import settings
 from app.core.exceptions import setup_exception_handlers
 from app.core.limiter import limiter
 from app.core.logging import logger
+from app.core.security_headers import SecurityHeadersMiddleware
 from app.database import engine, Base
 from app.routers import auth
-from app.routers import workspaces, integrations, contacts, bookings, forms, inventory, conversations, public, staff, automation
+from app.routers import workspaces, integrations, contacts, bookings, forms, inventory, conversations, public, staff, automation, ai
 
 # Create database tables (for development)
 Base.metadata.create_all(bind=engine)
@@ -28,6 +29,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Setup exception handlers
 setup_exception_handlers(app)
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Configure CORS
 app.add_middleware(
@@ -51,6 +55,7 @@ app.include_router(conversations.router)
 app.include_router(public.router)
 app.include_router(staff.router)
 app.include_router(automation.router)
+app.include_router(ai.router)
 
 
 @app.get("/")
